@@ -191,9 +191,11 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
   /**
    * A map used for the keyboard representation.
    */
-  var mouseMappings = List[SVal[_]]()
+  private var mouseMappings = List[SVal[_]]()
 
-  var mouse : Option[Entity] = None
+  private var mouse : Map[Int, Entity] = Map()
+
+  private var keyboard : Map[Int, Entity] = Map()
 
   /**
    * A list of all active [[simx.components.renderer.jvr.PostProcessingEffect]]s currently active.
@@ -310,131 +312,190 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
       msg.sender ! TellTransformation( msg.entity, worldTransform, msg.aspect )
   }
 
+  private def clearSettings(){
+    winId = 0
+    windowsToClose += 1
+    viewer.collect { case v => v.close();}
+    viewer = None
+    windows.foreach( x => windowSettings = windowSettings - x )
+    windows = Nil
+    pipelines = pipelines.empty
+    mirrorCameras = mirrorCameras.empty
+    cameras.values.foreach(_.values.foreach(sceneRoot.removeChildNode))
+    cameras = cameras.empty
+    camList = camList.empty
+    stereoMode = None
+  }
+
+
+  private var windowSettings = Map[RenderWindow, RenderActorConfig]()
+
+  private def createWindow(config : RenderActorConfig, pipeline : Pipeline) = {
+    val window = config.resolution match {
+      case Some((width, height)) =>
+        new NewtRenderWindow(pipeline, width, height)
+      case None =>
+        //if(JVMTools.isWindows) new NewtRenderWindow( pipeline, true )
+        //    else
+        new NewtRenderWindow(pipeline, true)
+    }
+    config.hardwareHandle.collect{ case (_, screen, _) => window.setScreenDevice( screen ) }
+    window.setVSync( true )
+
+    config.stereoMode match {
+      case Some( StereoMode.FrameSequential ) =>
+        window.setStereo( true )
+      case Some(_)  =>
+      case None     => window.setStereo( false )
+    }
+    windowSettings = windowSettings.updated(window, config)
+    window
+  }
+
+  private def setupWindow( window : RenderWindow, config : RenderActorConfig ) = {
+    if (config.resolution.nonEmpty)
+      window.setSize(config.resolution.get._1, config.resolution.get._2)
+
+    window
+  }
+
+  private def createCam(c : RenderActorConfig, isLeft : Option[Boolean]) : VRCameraNode = {
+    val cam = new VRCameraNode(
+      c.id.toString + isLeft.collect{ case b => if (b) "_left" else "_right" }.getOrElse(""),
+      JVRConnector.transformConverter.revert( c.transformation ),
+      new Vector4((-c.size._1/2f).toFloat, (c.size._1/2f).toFloat, (c.size._2/2f).toFloat, (-c.size._2/2f).toFloat),
+      isLeft.getOrElse(c.eyeToRender == EyeToRender.Left),
+      Transform.identity()
+    )
+    c.eyeSeparation.collect{ case s => cam.setEyeSeparation( s )}
+    cam
+  }
+
+  private def setupCameras(config : RenderActorConfig, window : RenderWindow){
+    mirrorCameras = mirrorCameras + (window -> Map())
+    cameras       = cameras + (window -> Map())
+    camList       = camList + (window -> List())
+
+    if( config.eyeToRender == EyeToRender.Both ) {
+      cameras = cameras + (window -> ( cameras( window ) + ('standardLeft  -> createCam(config, Some(true )) ) ) )
+      cameras = cameras + (window -> ( cameras( window ) + ('standardRight -> createCam(config, Some(false)) ) ) )
+    } else {
+      cameras = cameras + (window -> ( cameras( window ) + ('standard -> createCam(config, None) ) ) )
+    }
+    if( cameras( window ).contains( 'standard ) ) {
+      sceneRoot.addChildNode( cameras( window )( 'standard ) )
+      camList = camList + (window -> (camList(window) ::: cameras( window )( 'standard ) :: Nil))
+    } else {
+      sceneRoot.addChildNode( cameras( window )( 'standardLeft ) )
+      sceneRoot.addChildNode( cameras( window )( 'standardRight ) )
+      camList = camList + (window -> (camList(window) ::: cameras( window )( 'standardLeft ) :: Nil))
+      camList = camList + (window -> (camList(window) ::: cameras( window )( 'standardRight ) :: Nil))
+      stereoMode = config.stereoMode
+    }
+  }
+
+  private def configureInputDevices(config : RenderActorConfig, window : RenderWindow, winId : Int){
+    def nameIt( n : String, e : Entity )(handler : Entity => Any) =
+      e.set(oTypes.Name.apply(n + " (" + id + ", " + winId + ")"), handler)
+
+    mouseMappings ::= oTypes.Origin(Vec3f.Zero)
+    mouseMappings ::= oTypes.Direction(Vec3f.Zero)
+    mouseMappings ::= oTypes.Position2D(Vec2f.Zero)
+    mouseMappings ::= oTypes.Button_Left(false)
+    mouseMappings ::= oTypes.Button_Right(false)
+    mouseMappings ::= oTypes.Button_Center(false)
+
+    def recurseBtns[T](e : Entity, remaining :  List[SVal[_]]) {
+      remaining match {
+        case head :: tail => e.set(head, recurseBtns(_, tail))
+        case Nil => nameIt("Mouse", e){ mouseEntity =>
+          mouse  = mouse.updated( winId, mouseEntity )
+          publishDevice( oTypes.Mouse( mouseEntity ), Symbol(config.hardwareHandle.getOrElse((0,0,0))._2.toString) :: Nil )
+        }
+      }
+    }
+
+    def recurseKeys(e : Entity, remaining : List[(Int, SVarDescription[Boolean, Boolean])]) {
+      remaining match {
+        case head :: tail =>
+          e.set( head._2(false), next => {
+            keyboardMap.update(head._1, next.getSVars(head._2).head._2.asInstanceOf[SVar[Boolean]].set( _ ) )
+            recurseKeys(next, tail)
+          })
+
+        case Nil => nameIt("Keyboard", e){
+          kb =>
+            keyboard = keyboard.updated(winId, kb)
+            publishDevice( oTypes.Keyboard(kb),  Symbol(config.hardwareHandle.getOrElse((0,0,0))._2.toString) :: Nil)
+        }
+      }
+    }
+
+    recurseKeys(keyboard.getOrElse(winId, new Entity), oTypes.Mappings.keyMap.toList)
+    recurseBtns(mouse.getOrElse(winId, new Entity), mouseMappings)
+    registerListeners(window, config, winId)
+  }
+
+  private var winId : Int = 0
+
+  private def settingsMatch(window : RenderWindow, settings : RenderActorConfig) = {
+    windowSettings get window match {
+      case Some(winSettings)  =>
+        settings.stereoMode.equals(winSettings.stereoMode) &&
+          settings.hardwareHandle.equals(winSettings.hardwareHandle) &&
+          winSettings.resolution.isDefined == settings.resolution.isDefined
+      case None => false
+    }
+  }
+
   addHandler[RenderActorConfigs] {
     configs : RenderActorConfigs =>
-      var winId = 0
 
       frequency = configs.frequency
       shadows = !configs.shadowQuality.equals( "none" )
       shadowQuality = configs.shadowQuality
       mirrorQuality = configs.mirrorQuality
 
+      if (configs.configs.size != windows.size || configs.configs.zip(windows).exists( t => !settingsMatch(t._2, t._1)))
+        clearSettings()
+
+      var remainingWindows = windows
       for( config <- configs.configs) {
-        val pipeline = new Pipeline( sceneRoot )
 
-        val window = config.resolution match {
-          case Some((width, height)) =>
-            new NewtRenderWindow( pipeline, width, height )
-          case None =>
-            //if(JVMTools.isWindows) new NewtRenderWindow( pipeline, true )
-            //    else
-            new NewtRenderWindow( pipeline, true )
+        val pipeline = remainingWindows.headOption.collect{
+          case win if pipelines.contains(win) && settingsMatch(win, config) => pipelines(win)
+        }.getOrElse( new Pipeline( sceneRoot ))
+
+        val window = remainingWindows.headOption match {
+          case Some(win) if settingsMatch(win, config) => win
+          case _ => createWindow(config, pipeline)
         }
 
-        config.hardwareHandle.collect{ case (_, screen, _) => window.setScreenDevice( screen ) }
-        window.setVSync( true )
+        setupWindow(window, config)
+        setupCameras(config, window)
 
-        config.stereoMode match {
-          case Some( StereoMode.FrameSequential ) =>
-            window.setStereo( true )
-          case Some(_)  =>
-          case None     => window.setStereo( false )
-        }
-
-        mirrorCameras = mirrorCameras + (window -> Map())
-        cameras       = cameras + (window -> Map())
-        camList       = camList + (window -> List())
-
-        def createCam(c : RenderActorConfig, isLeft : Option[Boolean]) : VRCameraNode = {
-          val cam = new VRCameraNode(
-            c.id.toString + isLeft.collect{ case b => if (b) "_left" else "_right" }.getOrElse(""),
-            JVRConnector.transformConverter.revert( c.transformation ),
-            new Vector4((-c.size._1/2f).toFloat, (c.size._1/2f).toFloat, (c.size._2/2f).toFloat, (-c.size._2/2f).toFloat),
-            isLeft.getOrElse(c.eyeToRender == EyeToRender.Left),
-            Transform.identity()
-          )
-          c.eyeSeparation.collect{ case s => cam.setEyeSeparation( s )}
-          cam
-        }
-
-        if( config.eyeToRender == EyeToRender.Both ) {
-          cameras = cameras + (window -> ( cameras( window ) + ('standardLeft  -> createCam(config, Some(true )) ) ) )
-          cameras = cameras + (window -> ( cameras( window ) + ('standardRight -> createCam(config, Some(false)) ) ) )
-        } else {
-          cameras = cameras + (window -> ( cameras( window ) + ('standard -> createCam(config, None) ) ) )
-        }
-        if( cameras( window ).contains( 'standard ) ) {
-          sceneRoot.addChildNode( cameras( window )( 'standard ) )
-          camList = camList + (window -> (camList(window) ::: cameras( window )( 'standard ) :: Nil))
-        } else {
-          sceneRoot.addChildNode( cameras( window )( 'standardLeft ) )
-          sceneRoot.addChildNode( cameras( window )( 'standardRight ) )
-          camList = camList + (window -> (camList(window) ::: cameras( window )( 'standardLeft ) :: Nil))
-          camList = camList + (window -> (camList(window) ::: cameras( window )( 'standardRight ) :: Nil))
-          stereoMode = config.stereoMode
-        }
-
+        pipeline.clearPipeline()
         createDefaultPipeline( pipeline, cameras( window ), sceneRoot, window )
 
         pipelines  = pipelines + (window -> pipeline )
 
-
-        def nameIt( n : String, e : Entity )(handler : Entity => Any) =
-          e.set(oTypes.Name.apply(n + " (" + id + ", " + winId + ")"), handler)
-
-        def recurseKeys(e : Entity, remaining : List[(Int, SVarDescription[Boolean, Boolean])]) {
-          remaining match {
-            case head :: tail =>
-              e.set( head._2(false), next => {
-                keyboardMap.update(head._1, next.getSVars(head._2).head._2.asInstanceOf[SVar[Boolean]].set( _ ) )
-                recurseKeys(next, tail)
-              })
-
-            case Nil => nameIt("Keyboard", e){
-              kb => publishDevice( oTypes.Keyboard(kb),  Symbol(config.hardwareHandle.getOrElse((0,0,0))._2.toString) :: Nil)
-            }
-          }
+        if (!windows.contains(window)) {
+          configureInputDevices(config, window, winId)
+          windows = windows ::: window :: Nil
         }
 
-        recurseKeys(new Entity, oTypes.Mappings.keyMap.toList)
+        if (remainingWindows.nonEmpty)
+          remainingWindows = remainingWindows.tail
 
-
-
-
-        mouseMappings ::= oTypes.Origin(Vec3f.Zero)
-        mouseMappings ::= oTypes.Direction(Vec3f.Zero)
-        mouseMappings ::= oTypes.Position2D(Vec2f.Zero)
-        mouseMappings ::= oTypes.Button_Left(false)
-        mouseMappings ::= oTypes.Button_Right(false)
-        mouseMappings ::= oTypes.Button_Center(false)
-
-
-
-
-        def recurseBtns[T](e : Entity, remaining :  List[SVal[_]]) {
-          remaining match {
-            case head :: tail => e.set(head, recurseBtns(_, tail))
-            case Nil => nameIt("Mouse", e){ mouseEntity =>
-                mouse  = Some(mouseEntity)
-                publishDevice( oTypes.Mouse( mouseEntity ), Symbol(config.hardwareHandle.getOrElse((0,0,0))._2.toString) :: Nil )
-            }
-          }
-
-        }
-
-        recurseBtns(new Entity, mouseMappings)
-
-        registerListeners(window, config)
-
-
-
-        windows = windows ::: window :: Nil
         winId += 1
       }
-      viewer = Some( new Viewer( true , windows : _* ) )
+
+      windowsToClose = windows.size
+      if (viewer.isEmpty)
+        viewer = Some(new Viewer(true, windows: _*))
+
       viewer.get.display()
       sender ! JVRRenderActorConfigComplete( )
-
   }
 
   /**
@@ -448,6 +509,11 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
    */
   addHandler[JVRRenderWindowClosed] {
     msg =>
+      try {
+        viewer.collect { case v => v.close() }
+      } catch {
+        case e : Exception =>
+      }
       jvrConnector.get ! JVRRenderWindowClosed()
       me.shutdown()
   }
@@ -471,7 +537,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
     })
   }
 
-  private var windowClosed = false
+  private var windowsToClose = 0
 
   /**
    * This helper function registers listener to the windows of this render actor to provide the input of mouse and
@@ -480,7 +546,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
    * @param window The windows.
    * @param config The configuration of the render window.
    */
-  private def registerListeners( window : RenderWindow, config : RenderActorConfig ) {
+  private def registerListeners( window : RenderWindow, config : RenderActorConfig, winId : Int ) {
     require( window != null, "The parameter 'window' must not be 'null'!" )
     require( config != null, "The parameter 'config' must not be 'null'!" )
 
@@ -490,8 +556,10 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
       new WindowListener {
         override def windowReshape(p1: RenderWindow, p2: Int, p3: Int) {}
         override def windowClose(p1: RenderWindow) {
-          windowClosed = true
-          me.self ! JVRRenderWindowClosed( )
+          println("window closed")
+          windowsToClose -= 1
+          if (windowsToClose == 0)
+            me.self ! JVRRenderWindowClosed()
         }
       }
     }
@@ -507,17 +575,17 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
     window.addMouseListener( new MouseListener {
       val buttons = Map[Int, ConvertibleTrait[Boolean]](1 -> oTypes.Button_Left, 2 -> oTypes.Button_Center, 3 -> oTypes.Button_Right)
       def sett[T : ClassTag]( sval : SVal[T] ){ mouseMappings.find( _.typedSemantics == sval.typedSemantics).collect{
-        case t => mouse.headOption.collect{case m => m.set( sval ) }
+        case t => mouse.get(winId).collect{case m => m.set( sval ) }
       } }
 
       def mouseReleased(e: MouseEvent) {
         buttons.get(e.getButton).collect{ case x => sett(x(false)) }
-        updatePickRay(e, -1)
+        updatePickRay(e)
       }
 
       def mousePressed(e: MouseEvent) {
         buttons.get(e.getButton).collect{ case x => sett(x(true)) }
-        updatePickRay(e, 1)
+        updatePickRay(e)
       }
 
       def mouseMoved( e: MouseEvent ) {
@@ -525,7 +593,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
       }
 
       def mouseClicked(e: MouseEvent) {
-
+        updatePickRay(e)
       }
 
       def mouseExited(e: MouseEvent)    {}
@@ -533,21 +601,18 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
       def mouseDragged(e: MouseEvent)   {sett( oTypes.Position2D(Vec2f( e.getX.toFloat, e.getY.toFloat )) )}
       def mouseWheelMoved(e: MouseEvent){}
 
-      private def updatePickRay(e: MouseEvent, state : Int) {
+      private def updatePickRay(e: MouseEvent) {
         val pickRay = Picker.getPickRay(sceneRoot, cameras.head._2.head._2, e.getNormalizedX, e.getNormalizedY)
         sett(oTypes.Origin(ConstVec3f(pickRay.getRayOrigin.x, pickRay.getRayOrigin.y, pickRay.getRayOrigin.z)))
         sett(oTypes.Direction(ConstVec3f(pickRay.getRayDirection.x, pickRay.getRayDirection.y,pickRay.getRayDirection.z)))
-        self ! RequestPick(pickRay, state)
+        self ! RequestPick(pickRay)
       }
     })
   }
 
-  private case class RequestPick(pickRay : PickRay, state : Int)
+  private case class RequestPick(pickRay : PickRay)
   addHandler[RequestPick]{
-    msg => pick(msg.pickRay).collect{ case entity => JVRPickEvent.emit(
-      simx.core.ontology.types.Entity(entity),
-      simx.core.ontology.types.Enabled(msg.state >= 0)
-    ) }
+    msg => pick(msg.pickRay).collect{ case entity => JVRPickEvent.emit(simx.core.ontology.types.Entity(entity)) }
   }
 
   private def pick(ray : PickRay) : Option[Entity] = {
@@ -604,7 +669,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
       val deltaT = (System.nanoTime - this.lastFrame) / 1000.0f
       for( ppe <- this.postProcessingEffects ) ppe.setCurrentDeltaT( deltaT )
 
-      viewer.collect{ case v if !windowClosed => v.display() }
+      viewer.collect{ case v if windowsToClose > 0 => v.display() }
       if( frequency == Triggered() ) msg.sender ! FinishedFrame()
       if( frequency == Unbound() ) self ! RenderNextFrame()
       this.lastFrame = System.nanoTime

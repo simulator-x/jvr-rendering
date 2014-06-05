@@ -83,12 +83,28 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
    */
   private var renderActors = List[SVarActor.Ref]()
 
+  private var lastknownConfig = SValSet()
+
   protected def requestInitialConfigValues(toProvide: Set[ConvertibleTrait[_]], aspect: EntityAspect, e: Entity) = {
-    configure(aspect.getCreateParams)
-    SValSet()
+    configure(aspect.getCreateParams, reconfigure = false)
+
+    lastknownConfig = SValSet(
+      simx.core.ontology.types.DisplaySetupDescription(aspect.getCreateParams.firstValueFor(simx.core.ontology.types.DisplaySetupDescription)),
+      simx.core.ontology.types.EffectsConfiguration(aspect.getCreateParams.firstValueFor(simx.core.ontology.types.EffectsConfiguration))
+    )
+    lastknownConfig
   }
 
-  protected def finalizeConfiguration(e: Entity){}
+  protected def finalizeConfiguration(e: Entity){
+    e.observe(DisplaySetupDescription).first{ newConfig =>
+        lastknownConfig.update(DisplaySetupDescription(newConfig))
+        configure(lastknownConfig)
+    }
+    e.observe(simx.core.ontology.types.EffectsConfiguration).first{ newConfig =>
+        lastknownConfig.update(simx.core.ontology.types.EffectsConfiguration(newConfig))
+        configure(lastknownConfig)
+    }
+  }
 
   /**
    * The list of render actors that are triggered by this component.
@@ -138,10 +154,14 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
    *
    */
   override protected def configure(params: SValSet) {
+    configure(params, reconfigure =  true)
+  }
+
+  private def configure(params: SValSet, reconfigure : Boolean) {
     info( "Got configuration" )
     if( JVRConnector.amountOfUser( params.firstValueFor(DisplaySetupDescription) ).intValue() == 1 ) {
       val grouped =  JVRConnector.sortToGroups( JVRConnector.createRenderActorConfigs( params.firstValueFor(DisplaySetupDescription) ) )
-      process( grouped, params.firstValueFor(simx.core.ontology.types.EffectsConfiguration) )
+      process( grouped, params.firstValueFor(simx.core.ontology.types.EffectsConfiguration), reconfigure )
       info( "1 User, processing, Creating user entity " )
     }
   }
@@ -163,6 +183,8 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
     msg => provideInitialValues(msg.entity, msg.initialValues)
   }
 
+  private var idToActorMap = Map[Int, SVarActor.Ref]()
+
   /**
    * This message process a preprocessed form of the display description and created instances of
    * [[simx.components.renderer.jvr.JVRRenderActor]].
@@ -170,9 +192,21 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
    * @param grouped A preprocessed form the display description.
    * @param effectsConfiguration The effectsConfiguration message.
    */
-  private def process( grouped : Map[Int,(List[RenderActorConfig],Frequency)], effectsConfiguration: EffectsConfiguration ) {
+  private def process( grouped : Map[Int,(List[RenderActorConfig],Frequency)], effectsConfiguration: EffectsConfiguration, reconfigure : Boolean ) {
     require( grouped != null, "The parameter 'grouped' must not be 'null'" )
     require( effectsConfiguration != null, "The parameter 'effectsConfiguration' must not be 'null'" )
+
+    def handleActor(actor : SVarActor.Ref, id : Int, configs : List[RenderActorConfig], frequency : Frequency, reconfigure : Boolean){
+      info( "Sending Config msg to Render Actor" )
+      actor ! RenderActorConfigs( id, effectsConfiguration.shadowQuality, effectsConfiguration.mirrorQuality, configs, frequency )
+      if (!reconfigure) {
+        trace("Adding render actor to list of render actors")
+        renderActors = renderActors ::: actor :: Nil
+        idToActorMap = idToActorMap.updated(id, actor)
+        if (frequency == Triggered()) renderActorsToTrigger = renderActorsToTrigger ::: actor :: Nil
+      }
+      process( grouped - id, effectsConfiguration, reconfigure )
+    }
 
     if( grouped.isEmpty ) {
       userDesc.realize{ e =>
@@ -184,29 +218,15 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
     }
     else {
       val (id,(configs,frequency)) = grouped.head
-      if( configs.head.node.isDefined ) {
-        val node = configs.head.node.get
-        info( "Creating Render Actor for display group {} on node {}", id, node )
-
-        createActor( new JVRRenderActor, Some( node ))( (renderActor) => {
-          info( "Sending Config msg to Render Actor" )
-          renderActor ! RenderActorConfigs( id, effectsConfiguration.shadowQuality, effectsConfiguration.mirrorQuality, configs, frequency )
-
-          trace( "Adding render actor to list of render actors" )
-          renderActors = renderActors ::: renderActor :: Nil
-          if( frequency == Triggered() ) renderActorsToTrigger = renderActorsToTrigger ::: renderActor :: Nil
-          process( grouped - id, effectsConfiguration )
-        })()
+      if (idToActorMap.contains(id)){
+        handleActor(idToActorMap(id), id, configs, frequency, reconfigure)
+      } else if( configs.head.node.isDefined ) {
+        info( "Creating Render Actor for display group {} on node {}", id, configs.head.node.get )
+        createActor( new JVRRenderActor, configs.head.node){ handleActor(_, id, configs, frequency, reconfigure) }()
 
       } else {
         info( "Creating Render Actor for display group {}", id )
-        val actor = createActor(new JVRRenderActor()){ renderActor => }()
-        info( "Sending Config msg to Render Actor" )
-        actor ! RenderActorConfigs( id, effectsConfiguration.shadowQuality, effectsConfiguration.mirrorQuality, configs, frequency )
-        trace( "Adding render actor to list of render actors" )
-        renderActors = renderActors ::: actor :: Nil
-        if( frequency == Triggered() ) renderActorsToTrigger = renderActorsToTrigger ::: actor :: Nil
-        process( grouped - id, effectsConfiguration )
+        handleActor(createActor(new JVRRenderActor()){ renderActor => }(), id, configs, frequency, reconfigure)
       }
     }
   }
@@ -774,15 +794,16 @@ object JVRDebugSettings {
 
 
 case class JVRComponentAspect(
-  name : Symbol,
-  displaySetup: DisplaySetupDesc = BasicDisplayConfiguration(1280, 800, fullscreen = false),
-  effectsConfiguration : EffectsConfiguration = EffectsConfiguration("low", "none")
-)
+                               name : Symbol,
+                               displaySetup: DisplaySetupDesc = BasicDisplayConfiguration(1280, 800, fullscreen = false),
+                               effectsConfiguration : EffectsConfiguration = EffectsConfiguration("low", "none")
+                               )
   extends GraphicsComponentAspect[JVRConnector](name){
-  def getComponentFeatures: Set[ConvertibleTrait[_]] = Set()
+  def getComponentFeatures: Set[ConvertibleTrait[_]] =
+    Set(DisplaySetupDescription, simx.core.ontology.types.EffectsConfiguration)
   def getCreateParams: NamedSValSet = NamedSValSet(aspectType,
-      DisplaySetupDescription(displaySetup),
-      simx.core.ontology.types.EffectsConfiguration(effectsConfiguration)
+    DisplaySetupDescription(displaySetup),
+    simx.core.ontology.types.EffectsConfiguration(effectsConfiguration)
   )
 }
 
