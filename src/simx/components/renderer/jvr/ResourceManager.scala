@@ -25,8 +25,7 @@ import simx.core.helper.Loggable
 import scala.reflect.runtime.universe.TypeTag
 import de.bht.jvr.collada14.loader.ColladaLoader
 import de.bht.jvr.core.{ShaderProgram, Texture2D, GroupNode, SceneNode}
-import simx.core.svaractor.SVarActor
-import simx.core.component.SingletonActor
+import simx.core.svaractor.{SingletonActor, SVarActor}
 
 // TODO: URGENT, Rewrite it!
 

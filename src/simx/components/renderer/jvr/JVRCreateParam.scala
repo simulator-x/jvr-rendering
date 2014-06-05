@@ -165,7 +165,7 @@ case class PPE( ppe : PostProcessingEffect ) extends RendererAspect( Symbols.pos
   val list = ppe.getSVarDescriptions
 
   override def getCreateParams = addCVars {
-    ppe.getCreateParameters ++ (simx.components.renderer.jvr.types.PostProcessingEffect( ppe ) :: Nil)
+    ppe.getCreateParameters ++ (simx.components.renderer.jvr.ontology.types.PostProcessingEffect( ppe ) :: Nil)
   }
 
   override def getFeatures : Set[ConvertibleTrait[_]] = {
@@ -198,7 +198,7 @@ case class JVRExistingNode(
   require( shaderEffect != null, "The parameter 'shaderEffect' must not be null!" )
 
   override def getCreateParams = {
-    val seq = new SValSeq(SubElement( subElement )) and Scale( scale ) and types.ShaderEffect( shaderEffect )
+    val seq = new SValSeq(SubElement( subElement )) and Scale( scale ) and ontology.types.ShaderEffect( shaderEffect )
     myCombine.foldLeft(seq){ _ and _ }
     addCVars(seq)
   }
@@ -259,7 +259,7 @@ case class JVRShapeFromFile( file: String,
     cVars = cVars and ColladaFile( file )
     if( subElement.isDefined ) cVars = cVars and SubElement( subElement.get )
     if( transformation.isRight ) cVars = cVars and Transformation( transformation.right.get )
-    cVars = cVars and Scale( scale ) and types.ShaderEffect( shaderEffect )
+    cVars = cVars and Scale( scale ) and ontology.types.ShaderEffect( shaderEffect )
     myCombine.foldLeft(cVars){ _ and _ }
     addCVars( cVars )
   }

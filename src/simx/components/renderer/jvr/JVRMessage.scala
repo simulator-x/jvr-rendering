@@ -28,13 +28,17 @@ import de.bht.jvr.core.Transform
 import simx.core.component.{Passive, Frequency}
 import simx.core.svaractor.SVarActor
 import simplex3d.math.floatx.ConstMat4f
+import simx.core.worldinterface.eventhandling.EventDescription
+import simx.core.ontology.types.OntologySymbol
+import scala.annotation.meta.param
+
 
 /**
  * A common base class for all jVR specific messages.
  *
  * @author Stephan Rehfeld
  */
-class JVRMessage(implicit @transient self : SVarActor.Ref) extends RendererMessage
+class JVRMessage(implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage
 
 /**
  * This messages is used by the [[simx.components.renderer.jvr.JVRConnector]] to publish a entity with the create param
@@ -273,7 +277,7 @@ private[jvr] case class InsertEntity( toInsert : Entity )(implicit self : SVarAc
 private[jvr] case class RenderActorConfig( id: Symbol, hardwareHandle: Option[(Int,Int,Int)], resolution: Option[(Int, Int)],
                                            size: (Double, Double), transformation: ConstMat4f, eyeToRender : EyeToRender.Value,
                                            stereoMode : Option[StereoMode.Value], node : Option[Symbol], eyeSeparation : Option[Float] )
-                                         (implicit @transient self : SVarActor.Ref) extends RendererMessage
+                                         (implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage
 
 /**
  * This message is used for the internal communication between the [[simx.components.renderer.jvr.JVRConnector]] and
@@ -291,7 +295,7 @@ private[jvr] case class RenderActorConfig( id: Symbol, hardwareHandle: Option[(I
  */
 private[jvr] case class RenderActorConfigs( id: Int, shadowQuality : String, mirrorQuality : String,
                                             configs : List[RenderActorConfig], frequency : Frequency )
-                                          (implicit @transient self : SVarActor.Ref) extends RendererMessage {
+                                          (implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage {
   require( !frequency.isInstanceOf[Passive], "As passive render actor does not make sense!" )
 }
 
@@ -303,7 +307,7 @@ private[jvr] case class RenderActorConfigs( id: Int, shadowQuality : String, mir
  *
  * @author Stephan Rehfeld
  */
-private[jvr] case class JVRRenderWindowClosed()(implicit @transient self : SVarActor.Ref) extends RendererMessage
+private[jvr] case class JVRRenderWindowClosed()(implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage
 
 /**
  * This message is used for the internal communication between the [[simx.components.renderer.jvr.JVRConnector]] and
@@ -315,7 +319,7 @@ private[jvr] case class JVRRenderWindowClosed()(implicit @transient self : SVarA
  *
  * @param user The entity that represents the user.
  */
-private[jvr] case class JVRPublishUserEntity( user: Entity )(implicit @transient self : SVarActor.Ref) extends RendererMessage
+private[jvr] case class JVRPublishUserEntity( user: Entity )(implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage
 
 /**
  * This message can be sent to an instance of [[simx.components.renderer.jvr.JVRConnector]] to get notified when a frame
@@ -323,7 +327,7 @@ private[jvr] case class JVRPublishUserEntity( user: Entity )(implicit @transient
  *
  * @author Stephan Rehfeld
  */
-case class SubscribeForRenderSteps()(implicit @transient self : SVarActor.Ref) extends RendererMessage
+case class SubscribeForRenderSteps()(implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage
 
 /**
  * This message can be sent to an instance of [[simx.components.renderer.jvr.JVRConnector]] to quit a subscription
@@ -331,21 +335,21 @@ case class SubscribeForRenderSteps()(implicit @transient self : SVarActor.Ref) e
  *
  * @author Stephan Rehfeld
  */
-case class UnsubscribeForRenderSteps()(implicit @transient self : SVarActor.Ref) extends RendererMessage
+case class UnsubscribeForRenderSteps()(implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage
 
 /**
  * This message is sent to observers of the render steps, if a frame has started.
  *
  * @author Stephan Rehfeld
  */
-case class FrameStarted()(implicit @transient self : SVarActor.Ref) extends RendererMessage
+case class FrameStarted()(implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage
 
 /**
  * This message is sent to observers of the render steps, if a frame has finished.
  *
  * @author Stephan Rehfeld
  */
-case class FrameFinished()(implicit @transient self : SVarActor.Ref) extends RendererMessage
+case class FrameFinished()(implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage
 
 /**
  * Message for benchmarking purposes.
@@ -355,6 +359,15 @@ case class FrameFinished()(implicit @transient self : SVarActor.Ref) extends Ren
  *
  * @param source The source of the step count.
  */
-case class PrintStepCountOf( source : SVarActor.Ref )(implicit @transient self : SVarActor.Ref) extends RendererMessage
+case class PrintStepCountOf( source : SVarActor.Ref )(implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage
 
-case class SwitchEyes() (implicit @transient self : SVarActor.Ref) extends RendererMessage
+case class SwitchEyes() (implicit @(transient @param) self : SVarActor.Ref) extends RendererMessage
+
+case class CreateMesh(e : Entity, asp : EntityAspect, given : SValSet, ready : SValSet, configActor : SVarActor.Ref)
+
+case class MeshCreated(entity : Entity, initialValues : SValSet )
+
+object JVRPickEvent extends EventDescription(
+  OntologySymbol('jvrPickRaySelectionEvent),
+  simx.core.ontology.types.Entity :: Nil
+)

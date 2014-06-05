@@ -29,6 +29,8 @@ import simx.core.entity.typeconversion.ConvertibleTrait
 import de.bht.jvr.util.Color
 import simx.core.entity.Entity
 import simx.core.svaractor.{SVarActor, SVar}
+import simx.core.svaractor.unifiedaccess.EntityUpdateHandling
+import scala.annotation.meta.field
 
 
 /**
@@ -74,7 +76,7 @@ class ShaderEffect( name : String ) extends Serializable {
   /**
    * The constructed shader material for this effect.
    */
-  @transient private var shaderMaterial : Option[ShaderMaterial] = None
+  @(transient @field) private var shaderMaterial : Option[ShaderMaterial] = None
 
   /**
    * This method adds a render pass to this shader effect.
@@ -135,32 +137,32 @@ class ShaderEffect( name : String ) extends Serializable {
     shaderMaterial = Some(sm)
   }
 
-  def bindShaderMaterialToEntity( entity : Entity )(implicit actorContext : SVarActor) = {
+  def bindShaderMaterialToEntity( entity : Entity )(implicit actorContext : EntityUpdateHandling) = {
     for( renderPass <- renderPasses ) {
       for( uniformManager <- renderPass.uniformList ) {
         if( uniformManager.ontologyMember.isDefined )
           uniformManager.value match {
             case v : Float =>
               val material = getShaderMaterial
-              entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Float]].observe{
+              entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[Float]].observe{
                 v =>material.setUniform( renderPass.name, uniformManager.name, new UniformFloat( v ) )
               }
             case v : Int =>
-              entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Int]].observe{
+              entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[Int]].observe{
                 v =>  getShaderMaterial.setUniform( renderPass.name, uniformManager.name, new UniformInt( v ) )
               }
             case v : Boolean =>
-              entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Boolean]].observe{
+              entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[Boolean]].observe{
                 v => getShaderMaterial.setUniform( renderPass.name, uniformManager.name, new UniformBool( v ) )
               }
             case v : Vector2 =>
-              entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Vector2]].observe{
+              entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[Vector2]].observe{
                 v => getShaderMaterial.setUniform( renderPass.name, uniformManager.name, new UniformVector2( v ) )
               }
             case v : Seq[_] =>
               v.head match {
                 case h : Vector2 =>
-                  entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Seq[Vector2]]].observe{ v : Seq[Vector2] =>
+                  entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[Seq[Vector2]]].observe{ v : Seq[Vector2] =>
                     getShaderMaterial.setUniform( renderPass.name, uniformManager.name, new UniformVector2( v.toArray : _* ) )
                     getShaderMaterial.setUniform( renderPass.name, uniformManager.name + "_size", new UniformInt( v.size ) )
                   }
@@ -201,7 +203,7 @@ class ShaderEffect( name : String ) extends Serializable {
     for( renderPass <- this.renderPasses ) {
       for( uniformManager <- renderPass.uniformList ) {
         if( uniformManager.ontologyMember.isDefined && uniformManager.ontologyMember.get == sVarDescription ) {
-          value = Some( uniformManager.ontologyMember.get.defaultValue().asInstanceOf[T] )
+          value = Some( uniformManager.value.asInstanceOf[T] )
         }
       }
     }
@@ -245,7 +247,7 @@ class RenderPass( val name : String ) extends UniformListContaining[RenderPass] 
   /**
    * The shader material that is constructed for this post processing effect.
    */
-  @transient private var shaderProgram : Option[ShaderProgram] = None
+  @(transient @field) private var shaderProgram : Option[ShaderProgram] = None
 
   override var uniformList : List[UniformManager[_, _,RenderPass]] = List()
 

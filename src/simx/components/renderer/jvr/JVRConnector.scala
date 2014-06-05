@@ -20,9 +20,10 @@
 
 package simx.components.renderer.jvr
 
+
 import simx.core.components.renderer.setup._
 import simx.core.entity.description._
-import simx.core.components.renderer.GraphicsComponent
+import simx.core.components.renderer.{GraphicsComponentAspect, GraphicsComponent}
 import simx.core.component.Frequency
 import de.bht.jvr.math.Matrix4
 import simx.core.svaractor.SVarActor
@@ -32,17 +33,15 @@ import simx.core.entity.typeconversion.{Converter, ConvertibleTrait}
 import simx.core.entity.component.EntityCreationHandling
 import simx.core.entity.Entity
 import simx.core.ontology.entities.User
-import types._
-import simx.core.ontology.types.Color
-import scala.Some
+import ontology.types._
+import simx.core.ontology.types.{DisplaySetupDescription, Color}
 import simx.core.components.renderer.createparameter.VRUser
-import simx.core.component.ComponentConfigured
-import simx.core.components.renderer.messages.ConfigureRenderer
+import simx.core.components.renderer.messages.{EffectsConfiguration, ConfigureRenderer}
 import simx.core.ontology.EntityDescription
-import simx.core.components.naming.NameIt
 import simx.core.component.Triggered
 import simx.core.helper.TextureData
 import simplex3d.math.floatx.ConstMat4f
+import simx.core.worldinterface.naming.NameIt
 
 /**
  * The binding for the jVR renderer.
@@ -69,10 +68,10 @@ import simplex3d.math.floatx.ConstMat4f
  *
  * @author Stephan Rehfeld
  *
- * @param componentName The name of the component. Typically 'renderer.
+ * @param name The name of the component. Typically 'renderer.
  *
  */
-class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor with GraphicsComponent with IODeviceProvider with EntityCreationHandling {
+class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) with IODeviceProvider with EntityCreationHandling {
 
   def this() = this( 'renderer )
 
@@ -83,6 +82,29 @@ class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor wi
    * The list of render actors.
    */
   private var renderActors = List[SVarActor.Ref]()
+
+  private var lastknownConfig = SValSet()
+
+  protected def requestInitialConfigValues(toProvide: Set[ConvertibleTrait[_]], aspect: EntityAspect, e: Entity) = {
+    configure(aspect.getCreateParams, reconfigure = false)
+
+    lastknownConfig = SValSet(
+      simx.core.ontology.types.DisplaySetupDescription(aspect.getCreateParams.firstValueFor(simx.core.ontology.types.DisplaySetupDescription)),
+      simx.core.ontology.types.EffectsConfiguration(aspect.getCreateParams.firstValueFor(simx.core.ontology.types.EffectsConfiguration))
+    )
+    lastknownConfig
+  }
+
+  protected def finalizeConfiguration(e: Entity){
+    e.observe(DisplaySetupDescription).first{ newConfig =>
+        lastknownConfig.update(DisplaySetupDescription(newConfig))
+        configure(lastknownConfig)
+    }
+    e.observe(simx.core.ontology.types.EffectsConfiguration).first{ newConfig =>
+        lastknownConfig.update(simx.core.ontology.types.EffectsConfiguration(newConfig))
+        configure(lastknownConfig)
+    }
+  }
 
   /**
    * The list of render actors that are triggered by this component.
@@ -105,11 +127,6 @@ class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor wi
   private val userDesc = new EntityDescription( VRUser(), NameIt("User") )
 
   /**
-   * The actor that sent the [[simx.core.components.renderer.messages.ConfigureRenderer]] message.
-   */
-  private var configurationOrigin : Option[SVarActor.Ref] = None
-
-  /**
    * The amount of render actors that already has been configured. This flag is used while starting and configuring all
    * render actors.
    */
@@ -118,12 +135,12 @@ class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor wi
   /**
    * This map holds open publish request while creating an entity.
    */
-  private var openPublishRequests = Map[EntityAspect, SValSet]()
+  private var openPublishRequests = Map[Entity, SValSet]()
 
   /**
    * This map holds a counter how many render actors already anserwered.
    */
-  private var openPublishRequestsCounter = Map[EntityAspect, Int]()
+  private var openPublishRequestsCounter = Map[Entity, Int]()
 
   /**
    * This map holds open transformation request while creating an entity.
@@ -137,7 +154,16 @@ class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor wi
    *
    */
   override protected def configure(params: SValSet) {
-    throw new Exception("JVR Connector does not support standard configuration")
+    configure(params, reconfigure =  true)
+  }
+
+  private def configure(params: SValSet, reconfigure : Boolean) {
+    info( "Got configuration" )
+    if( JVRConnector.amountOfUser( params.firstValueFor(DisplaySetupDescription) ).intValue() == 1 ) {
+      val grouped =  JVRConnector.sortToGroups( JVRConnector.createRenderActorConfigs( params.firstValueFor(DisplaySetupDescription) ) )
+      process( grouped, params.firstValueFor(simx.core.ontology.types.EffectsConfiguration), reconfigure )
+      info( "1 User, processing, Creating user entity " )
+    }
   }
 
   addHandler[SwitchEyes]{
@@ -145,67 +171,62 @@ class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor wi
       renderActors.foreach(_ ! msg)
   }
 
-  addHandler[ConfigureRenderer]{
-    msg =>
-      configurationOrigin = Some( msg.sender )
-      info( "Got configuration" )
-      if( JVRConnector.amountOfUser( msg.displaySetup ).intValue() == 1 ) {
-        val grouped =  JVRConnector.sortToGroups( JVRConnector.createRenderActorConfigs( msg.displaySetup ) )
-        process( grouped, msg )
-
-        info( "1 User, processing, Creating user entity " )
-
-      }
+  addHandler[ConfigureRenderer]{msg =>
+    throw new Exception("[JVRConnector] received deprecated ConfigureRenderer message. Use the arguments of JVRComponentAspect to configure JVRComponent insted.")
   }
 
   addHandler[JVRRenderActorConfigComplete] { msg =>
     renderActorsConfigured = renderActorsConfigured + 1
-    if( renderActorsConfigured == renderActors.size ) {
-      configurationOrigin.getOrElse(throw new Exception("error...")) ! ComponentConfigured( )
-    }
   }
+
+  addHandler[MeshCreated]{
+    msg => provideInitialValues(msg.entity, msg.initialValues)
+  }
+
+  private var idToActorMap = Map[Int, SVarActor.Ref]()
 
   /**
    * This message process a preprocessed form of the display description and created instances of
    * [[simx.components.renderer.jvr.JVRRenderActor]].
    *
    * @param grouped A preprocessed form the display description.
-   * @param msg The configure message.
+   * @param effectsConfiguration The effectsConfiguration message.
    */
-  private def process( grouped : Map[Int,(List[RenderActorConfig],Frequency)], msg : ConfigureRenderer ) {
+  private def process( grouped : Map[Int,(List[RenderActorConfig],Frequency)], effectsConfiguration: EffectsConfiguration, reconfigure : Boolean ) {
     require( grouped != null, "The parameter 'grouped' must not be 'null'" )
-    require( msg != null, "The parameter 'msg' must not be 'null'" )
+    require( effectsConfiguration != null, "The parameter 'effectsConfiguration' must not be 'null'" )
+
+    def handleActor(actor : SVarActor.Ref, id : Int, configs : List[RenderActorConfig], frequency : Frequency, reconfigure : Boolean){
+      info( "Sending Config msg to Render Actor" )
+      actor ! RenderActorConfigs( id, effectsConfiguration.shadowQuality, effectsConfiguration.mirrorQuality, configs, frequency )
+      if (!reconfigure) {
+        trace("Adding render actor to list of render actors")
+        renderActors = renderActors ::: actor :: Nil
+        idToActorMap = idToActorMap.updated(id, actor)
+        if (frequency == Triggered()) renderActorsToTrigger = renderActorsToTrigger ::: actor :: Nil
+      }
+      process( grouped - id, effectsConfiguration, reconfigure )
+    }
 
     if( grouped.isEmpty ) {
-      realize( userDesc){ (e : Entity) => {
-        publishDevice(simx.core.ontology.types.User(new User(e)))
+      userDesc.realize{ e =>
+        publishDevice(simx.core.ontology.types.User(new User(e, actorContext)))
         renderActors.foreach( _ ! JVRPublishUserEntity(e) )
-      }}
-    } else {
+      }
+      heldPublishElementTasks.foreach(task => {publishElement(task.e, task.aspect, task.ready, task.given)})
+      heldPublishElementTasks = Nil
+    }
+    else {
       val (id,(configs,frequency)) = grouped.head
-      if( configs.head.node.isDefined ) {
-        val node = configs.head.node.get
-        info( "Creating Render Actor for display group {} on node {}", id, node )
-
-        createActor( new JVRRenderActor, Some( node ))( (renderActor) => {
-          info( "Sending Config msg to Render Actor" )
-          renderActor ! RenderActorConfigs( id, msg.effectsConfiguration.shadowQuality, msg.effectsConfiguration.mirrorQuality, configs, frequency )
-
-          trace( "Adding render actor to list of render actors" )
-          renderActors = renderActors ::: renderActor :: Nil
-          if( frequency == Triggered() ) renderActorsToTrigger = renderActorsToTrigger ::: renderActor :: Nil
-          process( grouped - id, msg )
-        })()
+      if (idToActorMap.contains(id)){
+        handleActor(idToActorMap(id), id, configs, frequency, reconfigure)
+      } else if( configs.head.node.isDefined ) {
+        info( "Creating Render Actor for display group {} on node {}", id, configs.head.node.get )
+        createActor( new JVRRenderActor, configs.head.node){ handleActor(_, id, configs, frequency, reconfigure) }()
 
       } else {
         info( "Creating Render Actor for display group {}", id )
-        val actor = createActor(new JVRRenderActor()){ renderActor => }()
-        info( "Sending Config msg to Render Actor" )
-        actor ! RenderActorConfigs( id, msg.effectsConfiguration.shadowQuality, msg.effectsConfiguration.mirrorQuality, configs, frequency )
-        trace( "Adding render actor to list of render actors" )
-        renderActors = renderActors ::: actor :: Nil
-        if( frequency == Triggered() ) renderActorsToTrigger = renderActorsToTrigger ::: actor :: Nil
-        process( grouped - id, msg )
+        handleActor(createActor(new JVRRenderActor()){ renderActor => }(), id, configs, frequency, reconfigure)
       }
     }
   }
@@ -231,8 +252,14 @@ class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor wi
     val (ready, remaining) = aspect.getCreateParams.combineWithValues( toProvide )
     //ready = given.xMergeWith(ready)
 
-    if (remaining.isEmpty)
-      publishElement(e, aspect, ready, given)
+    if (remaining.isEmpty) {
+      if (aspect.semanticsEqual(Symbols.meshComponent))
+        renderActors.foreach( _ ! CreateMesh(e, aspect, given, ready, self))
+      else
+        publishElement(e, aspect, ready, given)
+    }
+
+
     else aspect.getCreateParams.semantics match {
       case Symbols.existingNode => renderActors.headOption match{
         case None =>
@@ -243,13 +270,15 @@ class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor wi
       }
 
       case Symbols.postProcessingEffect =>
-        val ppe = aspect.getCreateParams.getFirstSValFor( simx.components.renderer.jvr.types.PostProcessingEffect ).get.value
+        val ppe = aspect.getCreateParams.getFirstSValFor( simx.components.renderer.jvr.ontology.types.PostProcessingEffect ).get.value
         for( sVarDescription <- remaining )
           ready.addIfNew( combine( sVarDescription, ppe ) )
         publishElement(e, aspect, ready, given)
       case Symbols.shapeFromFile =>
-         ready.addIfNew(simx.core.ontology.types.Texture(JVRConnector.voidTextureData))
-         publishElement(e, aspect, ready, given)
+        ready.addIfNew(simx.core.ontology.types.Texture(JVRConnector.voidTextureData))
+        publishElement(e, aspect, ready, given)
+      case Symbols.`meshComponent` =>
+        renderActors.foreach( _ ! CreateMesh(e, aspect, given, ready, self))
       case somethingUnexpected =>
         throw new Exception( remaining + " is missing for " + somethingUnexpected)
     }
@@ -273,6 +302,9 @@ class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor wi
   private def combine[T]( c : ConvertibleTrait[T], ppe : PostProcessingEffect ) : SVal[T] =
     c( ppe.getValueForSVarDescription( c ) )
 
+  private case class PublishElementTask(e : Entity, aspect : EntityAspect, ready : SValSet, given : SValSet)
+  private var heldPublishElementTasks: List[PublishElementTask] = Nil
+
   /**
    * This method publishes an entity to the render actors.
    *
@@ -285,37 +317,42 @@ class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor wi
     require( aspect != null, "The parameter 'aspect' must not be 'null'" )
     require( ready != null, "The parameter 'ready' must not be 'null'" )
 
-    if (aspect.semanticsEqual(Symbols.user))
+    if (aspect.semanticsEqual(Symbols.user) || aspect.semanticsEqual(Symbols.component))
       provideInitialValues(e, ready)
-    else if(renderActors.isEmpty)
+    else if(renderActors.isEmpty) {
       println("WARNING: JVR initialization was not complete before this entity creation request")
+      heldPublishElementTasks = PublishElementTask(e, aspect, ready, given) :: heldPublishElementTasks
+    }
     else{
       info("publishing " + aspect.getCreateParams.semantics.value)
-      openPublishRequests = openPublishRequests.updated(aspect, ready)
+      openPublishRequests = openPublishRequests.updated(e, ready)
       renderActors.foreach{ _ ! PublishSceneElement( e, aspect, new SValSet(given).xMergeWith(ready) ) }
-      openPublishRequestsCounter = openPublishRequestsCounter + (aspect -> renderActors.size )
+      openPublishRequestsCounter = openPublishRequestsCounter + (e -> renderActors.size )
     }
   }
 
   addHandler[ElementInjected]{ msg =>
-    openPublishRequestsCounter = openPublishRequestsCounter.updated( msg.aspect, openPublishRequestsCounter( msg.aspect) - 1 )
+    //TODO: Fix bug related with the usage of EntityAspect as key for openPublishRequestsCounter and openPublishRequests
+    openPublishRequestsCounter = openPublishRequestsCounter.updated( msg.entity, openPublishRequestsCounter( msg.entity) - 1 )
 
-    if( openPublishRequestsCounter( msg.aspect ) == 0 ) {
-      openPublishRequests.get(msg.aspect) collect{
+    if( openPublishRequestsCounter( msg.entity ) == 0 ) {
+      openPublishRequests.get(msg.entity) collect{
         case pReq => provideInitialValues(msg.entity, pReq)
       }
-      openPublishRequestsCounter = openPublishRequestsCounter - msg.aspect
+      openPublishRequestsCounter = openPublishRequestsCounter - msg.entity
     }
   }
 
   protected def entityConfigComplete(e: Entity , aspect: EntityAspect){
-    if( aspect.semanticsEqual(Symbols.user) ) {
+    if (aspect.semanticsEqual(Symbols.component)){
+      //
+    } else if( aspect.semanticsEqual(Symbols.user) ) {
       trace( "Adding to list of users " )
       user = user ::: e :: Nil
     } else {
-      if (openPublishRequests.get(aspect).isEmpty)
-        publishElement(e, aspect, new SValSet(), new SValSet())
-      openPublishRequests = openPublishRequests - aspect
+      //if (openPublishRequests.get(e).isEmpty)
+      //  publishElement(e, aspect, new SValSet(), new SValSet())
+      openPublishRequests = openPublishRequests - e
 
       info( "Got new completed of Type {} entity and distribute it to {} actors",
         aspect.getCreateParams.getFirstValueFor(simx.core.ontology.types.Name),
@@ -359,11 +396,6 @@ class JVRConnector( val componentName: Symbol = 'renderer ) extends SVarActor wi
   addHandler[PinToCam]{
     msg => renderActors.foreach( _ ! msg )
   }
-
-  registerConvertibleHint(simx.components.renderer.jvr.types.Transformation)
-  registerConvertibleHint(simx.components.renderer.jvr.types.ViewPlatform)
-  registerConvertibleHint(simx.components.renderer.jvr.types.HeadTransform)
-  registerConvertibleHint(simx.components.renderer.jvr.types.Scale)
 
   info( "Raised and waiting for configuration" )
 
@@ -673,50 +705,50 @@ object JVRConnector {
     }
   }
 
-//  val textureConverter = new Converter(types.Texture)(simx.core.ontology.types.Texture) {
-//      protected def b2i(b : Byte) : Int = if (b < 0) 256 + b else b.toInt
-//      protected def intToArray(v : Int) = (for ( i <- List(1, 256, 65536) ) yield ( (v / i) % 256).toByte).toArray
-//      protected def arrayToInt(a : Array[Byte]) = a.foldLeft((0,1))((t, b) => (t._1 + b2i(b) * t._2, t._2 * 256) )._1
-//
-//      override def canRevert(to: ConvertibleTrait[_], from: ConvertibleTrait[_]) = true
-//      //override def canConvert(from: TypeInfo[_], to: TypeInfo[_]) = true
-//
-//      override def revert(from: Array[Byte]) : de.bht.jvr.core.Texture2D =
-//        new Texture2D(arrayToInt(from.slice(0,3)), arrayToInt(from.slice(3,6)), from.slice(6, from.length))
-//
-//      override def convert(from: de.bht.jvr.core.Texture2D): Array[Byte] =
-//        intToArray(from.getWidth) ++ intToArray(from.getHeight) ++ from.getImageData
-//    }
+  //  val textureConverter = new Converter(types.Texture)(simx.core.ontology.types.Texture) {
+  //      protected def b2i(b : Byte) : Int = if (b < 0) 256 + b else b.toInt
+  //      protected def intToArray(v : Int) = (for ( i <- List(1, 256, 65536) ) yield ( (v / i) % 256).toByte).toArray
+  //      protected def arrayToInt(a : Array[Byte]) = a.foldLeft((0,1))((t, b) => (t._1 + b2i(b) * t._2, t._2 * 256) )._1
+  //
+  //      override def canRevert(to: ConvertibleTrait[_], from: ConvertibleTrait[_]) = true
+  //      //override def canConvert(from: TypeInfo[_], to: TypeInfo[_]) = true
+  //
+  //      override def revert(from: Array[Byte]) : de.bht.jvr.core.Texture2D =
+  //        new Texture2D(arrayToInt(from.slice(0,3)), arrayToInt(from.slice(3,6)), from.slice(6, from.length))
+  //
+  //      override def convert(from: de.bht.jvr.core.Texture2D): Array[Byte] =
+  //        intToArray(from.getWidth) ++ intToArray(from.getHeight) ++ from.getImageData
+  //    }
 
-//  /**
-//   * This converters converts between a simplex3d matrix and a transform object of OntologyJVR.
-//   */
-//  val transformConverter2 = new Converter[de.bht.jvr.core.Transform, simplex3d.math.floatm.renamed.Mat4x4] {
-//
-//    override def canRevert(to: ConvertibleTrait[_], from: ConvertibleTrait[_]) = true
-//
-//    override def canConvert(from: ConvertibleTrait[_], to: ConvertibleTrait[_]) = true
-//
-//    override def revert(from: simplex3d.math.floatm.renamed.Mat4x4) : de.bht.jvr.core.Transform =
-//
-//      new de.bht.jvr.core.Transform(
-//        new Matrix4(
-//          from.m00, from.m01, from.m02, from.m03,
-//          from.m10, from.m11, from.m12, from.m13,
-//          from.m20, from.m21, from.m22, from.m23,
-//          from.m30, from.m31, from.m32, from.m33 )
-//      )
-//
-//    override def convert(from: de.bht.jvr.core.Transform): simplex3d.math.floatm.renamed.Mat4x4 = {
-//      val matrix = from.getMatrix
-//      simplex3d.math.floatm.renamed.Mat4x4(
-//        matrix.get( 0, 0 ), matrix.get( 1, 0 ), matrix.get( 2, 0 ), matrix.get( 3, 0 ),
-//        matrix.get( 0, 1 ), matrix.get( 1, 1 ), matrix.get( 2, 1 ), matrix.get( 3, 1 ),
-//        matrix.get( 0, 2 ), matrix.get( 1, 2 ), matrix.get( 2, 2 ), matrix.get( 3, 2 ),
-//        matrix.get( 0, 3 ), matrix.get( 1, 3 ), matrix.get( 2, 3 ), matrix.get( 3, 3 )
-//      )
-//    }
-//  }
+  //  /**
+  //   * This converters converts between a simplex3d matrix and a transform object of OntologyJVR.
+  //   */
+  //  val transformConverter2 = new Converter[de.bht.jvr.core.Transform, simplex3d.math.floatm.renamed.Mat4x4] {
+  //
+  //    override def canRevert(to: ConvertibleTrait[_], from: ConvertibleTrait[_]) = true
+  //
+  //    override def canConvert(from: ConvertibleTrait[_], to: ConvertibleTrait[_]) = true
+  //
+  //    override def revert(from: simplex3d.math.floatm.renamed.Mat4x4) : de.bht.jvr.core.Transform =
+  //
+  //      new de.bht.jvr.core.Transform(
+  //        new Matrix4(
+  //          from.m00, from.m01, from.m02, from.m03,
+  //          from.m10, from.m11, from.m12, from.m13,
+  //          from.m20, from.m21, from.m22, from.m23,
+  //          from.m30, from.m31, from.m32, from.m33 )
+  //      )
+  //
+  //    override def convert(from: de.bht.jvr.core.Transform): simplex3d.math.floatm.renamed.Mat4x4 = {
+  //      val matrix = from.getMatrix
+  //      simplex3d.math.floatm.renamed.Mat4x4(
+  //        matrix.get( 0, 0 ), matrix.get( 1, 0 ), matrix.get( 2, 0 ), matrix.get( 3, 0 ),
+  //        matrix.get( 0, 1 ), matrix.get( 1, 1 ), matrix.get( 2, 1 ), matrix.get( 3, 1 ),
+  //        matrix.get( 0, 2 ), matrix.get( 1, 2 ), matrix.get( 2, 2 ), matrix.get( 3, 2 ),
+  //        matrix.get( 0, 3 ), matrix.get( 1, 3 ), matrix.get( 2, 3 ), matrix.get( 3, 3 )
+  //      )
+  //    }
+  //  }
 
   /**
    * This converter converts between an AWT color and the color type of jVR.
@@ -760,5 +792,19 @@ object JVRDebugSettings {
   final val printFPS = false
 }
 
+
+case class JVRComponentAspect(
+                               name : Symbol,
+                               displaySetup: DisplaySetupDesc = BasicDisplayConfiguration(1280, 800, fullscreen = false),
+                               effectsConfiguration : EffectsConfiguration = EffectsConfiguration("low", "none")
+                               )
+  extends GraphicsComponentAspect[JVRConnector](name){
+  def getComponentFeatures: Set[ConvertibleTrait[_]] =
+    Set(DisplaySetupDescription, simx.core.ontology.types.EffectsConfiguration)
+  def getCreateParams: NamedSValSet = NamedSValSet(aspectType,
+    DisplaySetupDescription(displaySetup),
+    simx.core.ontology.types.EffectsConfiguration(effectsConfiguration)
+  )
+}
 
 

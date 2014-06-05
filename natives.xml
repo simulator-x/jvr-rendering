@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<NativeLibraries>
-	<Linux32><Path>lib/jogl2.0/linux32</Path></Linux32>
-	<Linux64><Path>lib/jogl2.0/linux64</Path></Linux64>
-	<MacOSX><Path>lib/jogl2.0/macosx</Path></MacOSX>
-	<Win32><Path>lib/jogl2.0/win32</Path></Win32>
-	<Win64><Path>lib/jogl2.0/win64</Path></Win64>
-</NativeLibraries>

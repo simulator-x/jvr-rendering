@@ -2,7 +2,9 @@
 <module type="JAVA_MODULE" version="4">
   <component name="FacetManager">
     <facet type="scala" name="Scala">
-      <configuration />
+      <configuration>
+        <option name="languageLevel" value="Scala 2.11" />
+      </configuration>
     </facet>
     <facet type="IvyIDEA" name="IvyIDEA">
       <configuration ivyFile="$MODULE_DIR$/ivy.xml" useProjectSettings="true" useCustomIvySettings="true" ivySettingsFile="" onlyResolveSelectedConfigs="false">
@@ -21,40 +23,37 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="core" exported="" />
+    <orderEntry type="module" module-name="core" />
     <orderEntry type="library" exported="" name="jVR" level="project" />
     <orderEntry type="module-library" exported="">
       <library name="IvyIDEA">
         <CLASSES>
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/newt/jars/newt-2.0.2.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/nativewindow/jars/nativewindow-2.0.2.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all-main/jars/jogl-all-main-2.0.2.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2-natives-windows-i586.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2-natives-solaris-amd64.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2-natives-macosx-universal.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2-natives-linux-armv6.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2-natives-linux-i586.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2-natives-solaris-i586.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2-natives-windows-amd64.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2-natives-linux-armv6hf.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2-natives-linux-amd64.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.0.2-natives-android-armv6.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt-main/jars/gluegen-rt-main-2.0.2.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2-natives-linux-amd64.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2-natives-macosx-universal.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2-natives-solaris-amd64.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2-natives-solaris-i586.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2-natives-windows-i586.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2-natives-linux-armv6.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2-natives-linux-i586.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2-natives-android-armv6.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2-natives-windows-amd64.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2-natives-linux-armv6hf.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.0.2.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/newt/jars/newt-2.1.5-01.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/nativewindow/jars/nativewindow-2.1.5-01.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt-main/jars/gluegen-rt-main-2.1.5-01.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.1.5-01-natives-windows-i586.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all-main/jars/jogl-all-main-2.1.5-01.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01-natives-windows-i586.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01-natives-linux-amd64.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01-natives-solaris-amd64.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01-natives-solaris-i586.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01-natives-linux-i586.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01-natives-linux-armv6hf.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01-natives-macosx-universal.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01-natives-linux-armv6.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01-natives-windows-amd64.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.jogl/jogl-all/jars/jogl-all-2.1.5-01-natives-android-armv6.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/jars/gluegen-rt-2.1.5-01.jar!/" />
         </CLASSES>
-        <JAVADOC />
-        <SOURCES />
+        <JAVADOC>
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt-main/javadocs/gluegen-rt-main-2.1.5-01-javadoc.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/javadocs/gluegen-rt-2.1.5-01-javadoc.jar!/" />
+        </JAVADOC>
+        <SOURCES>
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt-main/sources/gluegen-rt-main-2.1.5-01-sources.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/org.jogamp.gluegen/gluegen-rt/sources/gluegen-rt-2.1.5-01-sources.jar!/" />
+        </SOURCES>
       </library>
     </orderEntry>
   </component>

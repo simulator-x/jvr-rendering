@@ -20,29 +20,29 @@
 
 package simx.components.renderer.jvr
 
-import de.bht.jvr.core._
-import pipeline.{PipelineCommandPtr, Pipeline}
-import simx.core.entity.Entity
-import de.bht.jvr.renderer._
 import java.io.File
-import de.bht.jvr.util.Color
-import simx.core.entity.description._
-import uniforms._
-import de.bht.jvr.input.{MouseEvent, MouseListener, KeyEvent, KeyListener}
 import javax.media.opengl.GL2GL3
-import de.bht.jvr.core._
-import simx.core.entity.typeconversion.ConvertibleTrait
-import simx.core.components.io.IODeviceProvider
-import simx.core.svaractor.{SVar, SVarImpl, SVarActor}
+
+import de.bht.jvr.input.{MouseEvent, MouseListener, KeyEvent, KeyListener}
 import de.bht.jvr.math.{Vector2, Vector4}
-import simx.core.ontology.{types => oTypes, Symbols}
-import simx.core.helper.{TextureData, SVarUpdateFunctionMap}
+import de.bht.jvr.util.Color
+import de.bht.jvr.core._
+import de.bht.jvr.renderer._
+import uniforms._
+import pipeline.{PipelineCommandPtr, Pipeline}
+
 import simx.core.component._
-import simx.core.component.Triggered
-import simx.core.component.Unbound
-import simx.core.entity.description.EntityConfiguration
-import simx.core.component.ObserveStepCount
+import simx.core.components.io.IODeviceProvider
+import simx.core.entity.Entity
+import simx.core.entity.description._
+import simx.core.entity.typeconversion.ConvertibleTrait
+import simx.core.helper.{TextureData, SVarUpdateFunctionMap}
+import simx.core.ontology.{types => oTypes, SVarDescription, Symbols}
+import simx.core.svaractor.{SVar, SVarActor}
+import simx.core.worldinterface.eventhandling.EventProvider
+
 import simplex3d.math.floatx.{Vec3f, Vec2f, ConstVec3f, ConstVec4f, functions}
+
 import scala.reflect.ClassTag
 
 
@@ -53,7 +53,12 @@ import scala.reflect.ClassTag
  *
  * @author Stephan Rehfeld
  */
-class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODeviceProvider {
+class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceProvider with EventProvider {
+
+  //TODO: implement me
+  protected def removeFromLocalRep(e : Entity){
+    println(this + " should remove " + e)
+  }
 
   /**
    * The id of the render actor.
@@ -186,7 +191,11 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
   /**
    * A map used for the keyboard representation.
    */
-  val mouseMappings = scala.collection.mutable.Set[TypedTuple[_]]()
+  private var mouseMappings = List[SVal[_]]()
+
+  private var mouse : Map[Int, Entity] = Map()
+
+  private var keyboard : Map[Int, Entity] = Map()
 
   /**
    * A list of all active [[simx.components.renderer.jvr.PostProcessingEffect]]s currently active.
@@ -263,7 +272,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
           val worldTransformOfTarget = t.getWorldTransform( sceneRoot )
           val newTransform = worldTransformOfTarget.invert.mul( worldTransform )
           entity.setTransform( newTransform )
-          set( msg.e.get( types.Transformation ).head, newTransform )
+          msg.e.getSVars( ontology.types.Transformation ).head._2.set( newTransform )
         }
 
           entity.getParentNode.asInstanceOf[GroupNode].removeChildNode( entity )
@@ -280,15 +289,20 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
   addHandler[JVRPublishUserEntity] {
     msg: JVRPublishUserEntity =>
       if(!userEntityIsRegistered){
-        val viewPlatform = msg.user.get(types.ViewPlatform).head
-        val headTransform = msg.user.get(types.HeadTransform).head
+        val viewPlatform = msg.user.getSVars(ontology.types.ViewPlatform).head._2
+        val headTransform = msg.user.getSVars(ontology.types.HeadTransform).head._2
 
-        observe( viewPlatform)( setTransform )
-        get( viewPlatform)( setTransform )
-        observe( headTransform)( setHeadTransform )
-        get( headTransform)( setHeadTransform )
+        viewPlatform.observe( setTransform )
+        viewPlatform.get( setTransform )
+        headTransform.observe( setHeadTransform )
+        headTransform.get( setHeadTransform )
         userEntityIsRegistered = true
       }
+  }
+
+  addHandler[CreateMesh]{ msg =>
+    createMesh(msg.e, msg.asp, msg.given)
+    sender ! MeshCreated(msg.e, msg.ready)
   }
 
   addHandler[RequestTransformation]{
@@ -298,107 +312,190 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
       msg.sender ! TellTransformation( msg.entity, worldTransform, msg.aspect )
   }
 
+  private def clearSettings(){
+    winId = 0
+    windowsToClose += 1
+    viewer.collect { case v => v.close();}
+    viewer = None
+    windows.foreach( x => windowSettings = windowSettings - x )
+    windows = Nil
+    pipelines = pipelines.empty
+    mirrorCameras = mirrorCameras.empty
+    cameras.values.foreach(_.values.foreach(sceneRoot.removeChildNode))
+    cameras = cameras.empty
+    camList = camList.empty
+    stereoMode = None
+  }
+
+
+  private var windowSettings = Map[RenderWindow, RenderActorConfig]()
+
+  private def createWindow(config : RenderActorConfig, pipeline : Pipeline) = {
+    val window = config.resolution match {
+      case Some((width, height)) =>
+        new NewtRenderWindow(pipeline, width, height)
+      case None =>
+        //if(JVMTools.isWindows) new NewtRenderWindow( pipeline, true )
+        //    else
+        new NewtRenderWindow(pipeline, true)
+    }
+    config.hardwareHandle.collect{ case (_, screen, _) => window.setScreenDevice( screen ) }
+    window.setVSync( true )
+
+    config.stereoMode match {
+      case Some( StereoMode.FrameSequential ) =>
+        window.setStereo( true )
+      case Some(_)  =>
+      case None     => window.setStereo( false )
+    }
+    windowSettings = windowSettings.updated(window, config)
+    window
+  }
+
+  private def setupWindow( window : RenderWindow, config : RenderActorConfig ) = {
+    if (config.resolution.nonEmpty)
+      window.setSize(config.resolution.get._1, config.resolution.get._2)
+
+    window
+  }
+
+  private def createCam(c : RenderActorConfig, isLeft : Option[Boolean]) : VRCameraNode = {
+    val cam = new VRCameraNode(
+      c.id.toString + isLeft.collect{ case b => if (b) "_left" else "_right" }.getOrElse(""),
+      JVRConnector.transformConverter.revert( c.transformation ),
+      new Vector4((-c.size._1/2f).toFloat, (c.size._1/2f).toFloat, (c.size._2/2f).toFloat, (-c.size._2/2f).toFloat),
+      isLeft.getOrElse(c.eyeToRender == EyeToRender.Left),
+      Transform.identity()
+    )
+    c.eyeSeparation.collect{ case s => cam.setEyeSeparation( s )}
+    cam
+  }
+
+  private def setupCameras(config : RenderActorConfig, window : RenderWindow){
+    mirrorCameras = mirrorCameras + (window -> Map())
+    cameras       = cameras + (window -> Map())
+    camList       = camList + (window -> List())
+
+    if( config.eyeToRender == EyeToRender.Both ) {
+      cameras = cameras + (window -> ( cameras( window ) + ('standardLeft  -> createCam(config, Some(true )) ) ) )
+      cameras = cameras + (window -> ( cameras( window ) + ('standardRight -> createCam(config, Some(false)) ) ) )
+    } else {
+      cameras = cameras + (window -> ( cameras( window ) + ('standard -> createCam(config, None) ) ) )
+    }
+    if( cameras( window ).contains( 'standard ) ) {
+      sceneRoot.addChildNode( cameras( window )( 'standard ) )
+      camList = camList + (window -> (camList(window) ::: cameras( window )( 'standard ) :: Nil))
+    } else {
+      sceneRoot.addChildNode( cameras( window )( 'standardLeft ) )
+      sceneRoot.addChildNode( cameras( window )( 'standardRight ) )
+      camList = camList + (window -> (camList(window) ::: cameras( window )( 'standardLeft ) :: Nil))
+      camList = camList + (window -> (camList(window) ::: cameras( window )( 'standardRight ) :: Nil))
+      stereoMode = config.stereoMode
+    }
+  }
+
+  private def configureInputDevices(config : RenderActorConfig, window : RenderWindow, winId : Int){
+    def nameIt( n : String, e : Entity )(handler : Entity => Any) =
+      e.set(oTypes.Name.apply(n + " (" + id + ", " + winId + ")"), handler)
+
+    mouseMappings ::= oTypes.Origin(Vec3f.Zero)
+    mouseMappings ::= oTypes.Direction(Vec3f.Zero)
+    mouseMappings ::= oTypes.Position2D(Vec2f.Zero)
+    mouseMappings ::= oTypes.Button_Left(false)
+    mouseMappings ::= oTypes.Button_Right(false)
+    mouseMappings ::= oTypes.Button_Center(false)
+
+    def recurseBtns[T](e : Entity, remaining :  List[SVal[_]]) {
+      remaining match {
+        case head :: tail => e.set(head, recurseBtns(_, tail))
+        case Nil => nameIt("Mouse", e){ mouseEntity =>
+          mouse  = mouse.updated( winId, mouseEntity )
+          publishDevice( oTypes.Mouse( mouseEntity ), Symbol(config.hardwareHandle.getOrElse((0,0,0))._2.toString) :: Nil )
+        }
+      }
+    }
+
+    def recurseKeys(e : Entity, remaining : List[(Int, SVarDescription[Boolean, Boolean])]) {
+      remaining match {
+        case head :: tail =>
+          e.set( head._2(false), next => {
+            keyboardMap.update(head._1, next.getSVars(head._2).head._2.asInstanceOf[SVar[Boolean]].set( _ ) )
+            recurseKeys(next, tail)
+          })
+
+        case Nil => nameIt("Keyboard", e){
+          kb =>
+            keyboard = keyboard.updated(winId, kb)
+            publishDevice( oTypes.Keyboard(kb),  Symbol(config.hardwareHandle.getOrElse((0,0,0))._2.toString) :: Nil)
+        }
+      }
+    }
+
+    recurseKeys(keyboard.getOrElse(winId, new Entity), oTypes.Mappings.keyMap.toList)
+    recurseBtns(mouse.getOrElse(winId, new Entity), mouseMappings)
+    registerListeners(window, config, winId)
+  }
+
+  private var winId : Int = 0
+
+  private def settingsMatch(window : RenderWindow, settings : RenderActorConfig) = {
+    windowSettings get window match {
+      case Some(winSettings)  =>
+        settings.stereoMode.equals(winSettings.stereoMode) &&
+          settings.hardwareHandle.equals(winSettings.hardwareHandle) &&
+          winSettings.resolution.isDefined == settings.resolution.isDefined
+      case None => false
+    }
+  }
+
   addHandler[RenderActorConfigs] {
     configs : RenderActorConfigs =>
-      var winId = 0
 
       frequency = configs.frequency
       shadows = !configs.shadowQuality.equals( "none" )
       shadowQuality = configs.shadowQuality
       mirrorQuality = configs.mirrorQuality
 
+      if (configs.configs.size != windows.size || configs.configs.zip(windows).exists( t => !settingsMatch(t._2, t._1)))
+        clearSettings()
+
+      var remainingWindows = windows
       for( config <- configs.configs) {
-        val pipeline = new Pipeline( sceneRoot )
 
-        val window = config.resolution match {
-          case Some((width, height)) =>
-            new NewtRenderWindow( pipeline, width, height )
-          case None =>
-            //if(JVMTools.isWindows) new NewtRenderWindow( pipeline, true )
-            //    else
-            new NewtRenderWindow( pipeline, true )
+        val pipeline = remainingWindows.headOption.collect{
+          case win if pipelines.contains(win) && settingsMatch(win, config) => pipelines(win)
+        }.getOrElse( new Pipeline( sceneRoot ))
+
+        val window = remainingWindows.headOption match {
+          case Some(win) if settingsMatch(win, config) => win
+          case _ => createWindow(config, pipeline)
         }
 
-        config.hardwareHandle.collect{ case (_, screen, _) => window.setScreenDevice( screen ) }
-        window.setVSync( true )
+        setupWindow(window, config)
+        setupCameras(config, window)
 
-        config.stereoMode match {
-          case Some( StereoMode.FrameSequential ) =>
-            window.setStereo( true )
-          case Some(_)  =>
-          case None     => window.setStereo( false )
-        }
-
-        mirrorCameras = mirrorCameras + (window -> Map())
-        cameras       = cameras + (window -> Map())
-        camList       = camList + (window -> List())
-
-        def createCam(c : RenderActorConfig, isLeft : Option[Boolean]) : VRCameraNode = {
-          val cam = new VRCameraNode(
-            c.id.toString + isLeft.collect{ case b => if (b) "_left" else "_right" }.getOrElse(""),
-            JVRConnector.transformConverter.revert( c.transformation ),
-            new Vector4((-c.size._1/2f).toFloat, (c.size._1/2f).toFloat, (c.size._2/2f).toFloat, (-c.size._2/2f).toFloat),
-            isLeft.getOrElse(c.eyeToRender == EyeToRender.Left),
-            Transform.identity()
-          )
-          c.eyeSeparation.collect{ case s => cam.setEyeSeparation( s )}
-          cam
-        }
-
-        if( config.eyeToRender == EyeToRender.Both ) {
-          cameras = cameras + (window -> ( cameras( window ) + ('standardLeft  -> createCam(config, Some(true )) ) ) )
-          cameras = cameras + (window -> ( cameras( window ) + ('standardRight -> createCam(config, Some(false)) ) ) )
-        } else {
-          cameras = cameras + (window -> ( cameras( window ) + ('standard -> createCam(config, None) ) ) )
-        }
-        if( cameras( window ).contains( 'standard ) ) {
-          sceneRoot.addChildNode( cameras( window )( 'standard ) )
-          camList = camList + (window -> (camList(window) ::: cameras( window )( 'standard ) :: Nil))
-        } else {
-          sceneRoot.addChildNode( cameras( window )( 'standardLeft ) )
-          sceneRoot.addChildNode( cameras( window )( 'standardRight ) )
-          camList = camList + (window -> (camList(window) ::: cameras( window )( 'standardLeft ) :: Nil))
-          camList = camList + (window -> (camList(window) ::: cameras( window )( 'standardRight ) :: Nil))
-          stereoMode = config.stereoMode
-        }
-
+        pipeline.clearPipeline()
         createDefaultPipeline( pipeline, cameras( window ), sceneRoot, window )
 
         pipelines  = pipelines + (window -> pipeline )
 
-        def nameIt( n : String, e : Entity ) = e.injectSVar(SVarImpl(n + " (" + id + ", " + winId + ")"), oTypes.Name)
+        if (!windows.contains(window)) {
+          configureInputDevices(config, window, winId)
+          windows = windows ::: window :: Nil
+        }
 
-        val kb = nameIt("Keyboard", oTypes.Mappings.keyMap.foldLeft(new Entity){ (kb, tuple) =>
-          val svar = SVarImpl(false)
-          keyboardMap.update( tuple._1, set( svar, _ ) )
-          kb.injectSVar( svar, tuple._2 )
-        })
+        if (remainingWindows.nonEmpty)
+          remainingWindows = remainingWindows.tail
 
-        def toTuple[T](a : ConvertibleTrait[T], b : SVar[T]) : TypedTuple[_] = (a, b).asInstanceOf[TypedTuple[_]]
-
-        mouseMappings += toTuple(oTypes.Origin, SVarImpl(Vec3f.Zero))
-        mouseMappings += toTuple(oTypes.Direction, SVarImpl( Vec3f.Zero))
-        mouseMappings += toTuple(oTypes.Position2D, SVarImpl( Vec2f.Zero ))
-        mouseMappings += toTuple(oTypes.Button_Left, SVarImpl( false ))
-        mouseMappings += toTuple(oTypes.Button_Right, SVarImpl( false ))
-        mouseMappings += toTuple(oTypes.Button_Center, SVarImpl( false ))
-
-        def inject[T](e : Entity, tuple : TypedTuple[T]) : Entity = e.injectSVar(tuple._2, tuple._1)
-        val mouseEntity = nameIt("Mouse", mouseMappings.foldLeft(new Entity){ (a,b) => inject(a, b) })
-
-        registerListeners(window, config)
-        publishDevice( oTypes.Keyboard(kb),  Symbol(config.hardwareHandle.getOrElse((0,0,0))._2.toString) :: Nil)
-        publishDevice( oTypes.Mouse( mouseEntity ), Symbol(config.hardwareHandle.getOrElse((0,0,0))._2.toString) :: Nil )
-        GeneralEntityDescription.notifyObservers( EntityConfiguration(mouseEntity, Map()))
-        GeneralEntityDescription.notifyObservers( EntityConfiguration(kb, Map()))
-
-        windows = windows ::: window :: Nil
         winId += 1
       }
-      viewer = Some( new Viewer( true , windows : _* ) )
+
+      windowsToClose = windows.size
+      if (viewer.isEmpty)
+        viewer = Some(new Viewer(true, windows: _*))
+
       viewer.get.display()
       sender ! JVRRenderActorConfigComplete( )
-
   }
 
   /**
@@ -412,6 +509,11 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
    */
   addHandler[JVRRenderWindowClosed] {
     msg =>
+      try {
+        viewer.collect { case v => v.close() }
+      } catch {
+        case e : Exception =>
+      }
       jvrConnector.get ! JVRRenderWindowClosed()
       me.shutdown()
   }
@@ -435,7 +537,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
     })
   }
 
-  private var windowClosed = false
+  private var windowsToClose = 0
 
   /**
    * This helper function registers listener to the windows of this render actor to provide the input of mouse and
@@ -444,7 +546,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
    * @param window The windows.
    * @param config The configuration of the render window.
    */
-  private def registerListeners( window : RenderWindow, config : RenderActorConfig ) {
+  private def registerListeners( window : RenderWindow, config : RenderActorConfig, winId : Int ) {
     require( window != null, "The parameter 'window' must not be 'null'!" )
     require( config != null, "The parameter 'config' must not be 'null'!" )
 
@@ -454,8 +556,10 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
       new WindowListener {
         override def windowReshape(p1: RenderWindow, p2: Int, p3: Int) {}
         override def windowClose(p1: RenderWindow) {
-          windowClosed = true
-          me.self ! JVRRenderWindowClosed( )
+          println("window closed")
+          windowsToClose -= 1
+          if (windowsToClose == 0)
+            me.self ! JVRRenderWindowClosed()
         }
       }
     }
@@ -470,7 +574,9 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
 
     window.addMouseListener( new MouseListener {
       val buttons = Map[Int, ConvertibleTrait[Boolean]](1 -> oTypes.Button_Left, 2 -> oTypes.Button_Center, 3 -> oTypes.Button_Right)
-      def sett[T]( sval : SVal[T] ){ mouseMappings.find( _._1 == sval.typedSemantics).collect{ case t => set( t._2, sval.as(t._1)) } }
+      def sett[T : ClassTag]( sval : SVal[T] ){ mouseMappings.find( _.typedSemantics == sval.typedSemantics).collect{
+        case t => mouse.get(winId).collect{case m => m.set( sval ) }
+      } }
 
       def mouseReleased(e: MouseEvent) {
         buttons.get(e.getButton).collect{ case x => sett(x(false)) }
@@ -499,8 +605,32 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
         val pickRay = Picker.getPickRay(sceneRoot, cameras.head._2.head._2, e.getNormalizedX, e.getNormalizedY)
         sett(oTypes.Origin(ConstVec3f(pickRay.getRayOrigin.x, pickRay.getRayOrigin.y, pickRay.getRayOrigin.z)))
         sett(oTypes.Direction(ConstVec3f(pickRay.getRayDirection.x, pickRay.getRayDirection.y,pickRay.getRayDirection.z)))
+        self ! RequestPick(pickRay)
       }
     })
+  }
+
+  private case class RequestPick(pickRay : PickRay)
+  addHandler[RequestPick]{
+    msg => pick(msg.pickRay).collect{ case entity => JVRPickEvent.emit(simx.core.ontology.types.Entity(entity)) }
+  }
+
+  private def pick(ray : PickRay) : Option[Entity] = {
+    import scala.collection.JavaConversions._
+
+    def findEntity(nodes: List[SceneNode]): Option[Entity] = nodes match {
+      case Nil => None
+      case head :: tail =>
+        entityToNodeMap find (_._2.contains(head)) match {
+          case None => findEntity(tail ::: head.getAllParentNodes.toList)
+          case Some((entity, _)) => Some(entity)
+        }
+    }
+
+    Picker.pickShapeNode(sceneRoot, ray, null).getShapeNode match {
+      case null => None
+      case node => findEntity(node :: Nil)
+    }
   }
 
   addHandler[SetAmbientColor]{
@@ -539,7 +669,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
       val deltaT = (System.nanoTime - this.lastFrame) / 1000.0f
       for( ppe <- this.postProcessingEffects ) ppe.setCurrentDeltaT( deltaT )
 
-      viewer.collect{ case v if !windowClosed => v.display() }
+      viewer.collect{ case v if windowsToClose > 0 => v.display() }
       if( frequency == Triggered() ) msg.sender ! FinishedFrame()
       if( frequency == Unbound() ) self ! RenderNextFrame()
       this.lastFrame = System.nanoTime
@@ -559,18 +689,22 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
         case Symbols.spotLight            => createSpotLight( msg.sender, msg.e, msg.aspect, msg.providings )
         //        case Symbols.texture              => createTexture()
         case Symbols.water                => createWater( msg.sender, msg.e, msg.aspect, msg.providings )
+        case Symbols.`meshComponent`                 => insertMesh(msg.sender, msg.e, msg.aspect)
         case x =>
       }
   }
 
   addHandler[RemoveSceneElement] {
     msg =>
-      val entities   = entityToNodeMap( msg.e )
-      val parentNode = entities.head.getParentNode.asInstanceOf[GroupNode]
-      if (parentNode != null)
-        entities.foreach(parentNode.removeChildNode(_))
-
-      msg.e.getAllSVars.foreach( triple => ignoreMultiobserve(triple._3) )
+      val entities   = entityToNodeMap.get( msg.e )
+      if (entities.isDefined){
+        val parentNode = entities.get.head.getParentNode.asInstanceOf[GroupNode]
+        if (parentNode != null)
+          entities.get.foreach(parentNode.removeChildNode(_))
+      } else {
+        println("tried to remove non-existent entity " + msg.e)
+      }
+      msg.e.getAllStateParticles.foreach( triple => ignoreMultiobserve(triple._3) )
   }
 
   /**
@@ -874,12 +1008,12 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
 
   }
 
-  private type ConnectTriple[T] = (ConvertibleTrait[T], T => Any, () => T)
+  private type ConnectTriple[T] = (ConvertibleTrait[T], T => Unit, () => T)
   private def connect( e : Entity, list : ConnectTriple[_]* ) { list.foreach( triple => singleConnect(e, triple, useGet = true ) ) }
 
   private def singleConnect[T: ClassTag]( entity : Entity, triple : ConnectTriple[T], useGet : Boolean = false ){
-    entity.get(triple._1).headOption match {
-      case Some(svar) => addMultiobserve(svar, useGet)(triple._2)
+    entity.getSVars(triple._1).headOption match {
+      case Some(svar) => addMultiobserve(svar._2, useGet)(triple._2)
       case None       => println("error, could not get " + triple._1)
     }
   }
@@ -904,13 +1038,13 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
       case None => sceneRoot.addChildNode( hullNode )
     }
 
-    e.get(simx.core.ontology.types.Texture).collect{
+    e.getSVars(simx.core.ontology.types.Texture).collect{
       case textureSVar => entityToDirectParentOfShape.get(e).collect{
         case parentOfShapeNode if parentOfShapeNode.getChildNodes.size == 1 =>
           parentOfShapeNode.getChildNodes.get(0) match {
             case child: GroupNode if child.getNumParentNodes > 1 =>
-                parentOfShapeNode.removeChildNode(child)
-                parentOfShapeNode.addChildNode(cloneSubTree(e, child))
+              parentOfShapeNode.removeChildNode(child)
+              parentOfShapeNode.addChildNode(cloneSubTree(e, child))
             case _ =>
           }
           val shapeNode = Finder.find(parentOfShapeNode, classOf[ShapeNode], null)
@@ -926,8 +1060,8 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
               }
             }}
 
-          textureSVar.observe(handleTexUpdate)
-          textureSVar.get( handleTexUpdate _ )
+          textureSVar._2.observe(handleTexUpdate)
+          textureSVar._2.get( handleTexUpdate )
       }
     }
 
@@ -975,8 +1109,8 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
   addHandler[InsertEntity]{
     msg => toInsert.get(msg.toInsert) match {
       case Some(funcList) =>
-        msg.toInsert.get(oTypes.Name).headOption match {
-          case Some(svar) =>
+        msg.toInsert.getSVars(oTypes.Name).headOption match {
+          case Some((_, svar)) =>
             get( svar)( (name : String) => info("inserting " + name + " into scenegraph") )
             toInsert = toInsert - msg.toInsert
             funcList.foreach( _.apply(msg.toInsert) )
@@ -985,8 +1119,8 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
             toInsert = toInsert - msg.toInsert
             funcList.foreach( _.apply(msg.toInsert) )
         }
-      case None => msg.toInsert.get(oTypes.Name).headOption match {
-        case Some(svar) => get( svar)( name => info("entity " + name + " could not be inserted since it was not found"))
+      case None => msg.toInsert.getSVars(oTypes.Name).headOption match {
+        case Some((_, svar)) => get( svar )( name => info("entity " + name + " could not be inserted since it was not found"))
         case None => info("entity " + msg.toInsert + " could not be inserted since it was not found")
       }
     }
@@ -1003,7 +1137,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
     def fget[T]( c : ConvertibleTrait[T] ) : T  = fresh.firstValueFor(c)
 
     val parentElement = aspect.getCreateParams.getFirstValueFor( oTypes.ParentElement )
-    val transformation = fget( types.Transformation )
+    val transformation = fget( ontology.types.Transformation )
 
     val spotLight = new SpotLightNode( aspect.getCreateParams.firstValueFor( oTypes.Name ) )
     spotLight.setTransform(            transformation )
@@ -1011,8 +1145,8 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
     spotLight.setShadowBias(           fget( oTypes.ShadowBias ) )
     spotLight.setSpotCutOff(           fget( oTypes.SpotCutOff ) )
     spotLight.setSpotExponent(         fget( oTypes.SpotExponent ) )
-    spotLight.setDiffuseColor(         fget( types.DiffuseColor  ) )
-    spotLight.setSpecularColor(        fget( types.SpecularColor ) )
+    spotLight.setDiffuseColor(         fget( ontology.types.DiffuseColor  ) )
+    spotLight.setSpecularColor(        fget( ontology.types.SpecularColor ) )
     spotLight.setLinearAttenuation(    fget( oTypes.LinearAttenuation ) )
     spotLight.setConstantAttenuation(  fget( oTypes.ConstantAttenuation ) )
     spotLight.setQuadraticAttenuation( fget( oTypes.QuadraticAttenuation ) )
@@ -1020,9 +1154,9 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
     addInsertion(entity){ e : Entity =>
       val hullNode = insertNode(e, spotLight, transformation, parentElement)
       connect(e,
-        asTriple(types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform),
-        asTriple(types.DiffuseColor, spotLight.setDiffuseColor( _ : Color ), spotLight.getDiffuseColor),
-        asTriple(types.SpecularColor, spotLight.setSpecularColor( _ : Color ), spotLight.getSpecularColor),
+        asTriple(ontology.types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform),
+        asTriple(ontology.types.DiffuseColor, spotLight.setDiffuseColor( _ : Color ), spotLight.getDiffuseColor),
+        asTriple(ontology.types.SpecularColor, spotLight.setSpecularColor( _ : Color ), spotLight.getSpecularColor),
         asTriple(oTypes.ConstantAttenuation, spotLight.setConstantAttenuation( _ : Float ), spotLight.getConstantAttenuation),
         asTriple(oTypes.LinearAttenuation, spotLight.setLinearAttenuation( _ : Float ), spotLight.getLinearAttenuation),
         asTriple(oTypes.QuadraticAttenuation, spotLight.setQuadraticAttenuation( _ : Float ), spotLight.getQuadraticAttenuation),
@@ -1040,13 +1174,13 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
     def fget[T]( c : ConvertibleTrait[T] ) : T  = fresh.firstValueFor(c)
 
     val name = aspect.getCreateParams.firstValueFor( oTypes.Name )
-    val transformation = fget( types.Transformation )
+    val transformation = fget( ontology.types.Transformation )
     val parentElement = aspect.getCreateParams.getFirstValueFor( oTypes.ParentElement )
 
     val pointLight = new PointLightNode( name )
     pointLight.setTransform( transformation )
-    pointLight.setDiffuseColor(         fget( types.DiffuseColor ) )
-    pointLight.setSpecularColor(        fget( types.SpecularColor ) )
+    pointLight.setDiffuseColor(         fget( ontology.types.DiffuseColor ) )
+    pointLight.setSpecularColor(        fget( ontology.types.SpecularColor ) )
     pointLight.setLinearAttenuation(    fget( oTypes.LinearAttenuation ) )
     pointLight.setConstantAttenuation(  fget( oTypes.ConstantAttenuation ) )
     pointLight.setQuadraticAttenuation( fget( oTypes.QuadraticAttenuation ) )
@@ -1054,9 +1188,9 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
     addInsertion(entity){ e : Entity =>
       val hullNode = insertNode (e, pointLight, transformation, parentElement )
       connect(e,
-        asTriple(types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform),
-        asTriple(types.DiffuseColor , pointLight.setDiffuseColor( _ : Color), pointLight.getDiffuseColor),
-        asTriple(types.SpecularColor, pointLight.setSpecularColor( _ : Color), pointLight.getSpecularColor),
+        asTriple(ontology.types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform),
+        asTriple(ontology.types.DiffuseColor , pointLight.setDiffuseColor( _ : Color), pointLight.getDiffuseColor),
+        asTriple(ontology.types.SpecularColor, pointLight.setSpecularColor( _ : Color), pointLight.getSpecularColor),
         asTriple(oTypes.LinearAttenuation, pointLight.setLinearAttenuation( _ : Float ), pointLight.getLinearAttenuation),
         asTriple(oTypes.ConstantAttenuation, pointLight.setConstantAttenuation( _ : Float ), pointLight.getConstantAttenuation),
         asTriple(oTypes.QuadraticAttenuation, pointLight.setQuadraticAttenuation( _ : Float ), pointLight.getQuadraticAttenuation)
@@ -1105,13 +1239,13 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
     val fileName        = aget( oTypes.ColladaFile ).get
     val subElement      = aget( oTypes.SubElement )
     val parentElement   = aget( oTypes.ParentElement )
-    val transformation  = fresh.firstValueFor( types.Transformation )
-    val scale           = aget( types.Scale )
+    val transformation  = fresh.firstValueFor( ontology.types.Transformation )
+    val scale           = aget( ontology.types.Scale )
 
     ask( ResourceManager.self, AskColladaFile(new File(fileName))  ){
       source : GroupNode =>
         val shape = subElement.collect{ case name => Finder.find( source, classOf[GroupNode], name ) }.getOrElse(source)
-        val shaderEffect = aspect.getCreateParams.getFirstValueFor( types.ShaderEffect )
+        val shaderEffect = aspect.getCreateParams.getFirstValueFor( ontology.types.ShaderEffect )
 
         entityToDirectParentOfShape = entityToDirectParentOfShape.updated(entity, shape)
 
@@ -1125,7 +1259,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
 
         addInsertion(entity){ e : Entity =>
           val hullNode = insertNode(e, shape, transformation, parentElement, scale)
-          connect(e, asTriple(types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform))
+          connect(e, asTriple(ontology.types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform))
           shaderEffect.collect{ case se => se.bindShaderMaterialToEntity(e) }
         }
 
@@ -1181,7 +1315,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
 
         refreshPipelines()
 
-        connect(entity, asTriple(types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform))
+        connect(entity, asTriple(ontology.types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform))
     }
   }
 
@@ -1200,7 +1334,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
 
   private def createWater( sender: SVarActor.Ref, entity : Entity, aspect : EntityAspect, fresh : SValSet ) {
     val name = aspect.getCreateParams.firstValueFor( oTypes.Name )
-    val transformation = fresh.firstValueFor(types.Transformation)
+    val transformation = fresh.firstValueFor(ontology.types.Transformation)
     ask(ResourceManager.self, AskShaderProgram( new File("shader/mirror.vs") :: new File("shader/mirror.fs") :: Nil ) ){
       prog : ShaderProgram =>
         val waterMat = new ShaderMaterial( name + "_pass", prog )
@@ -1217,15 +1351,124 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
     }
   }
 
+
+  private def createMesh(entity : Entity, aspect : EntityAspect, given : SValSet){
+    val createParams = aspect.getCreateParams
+    //
+    val scale                = aspect.getCreateParams.firstValueFor( simx.components.renderer.jvr.ontology.types.Scale )
+    val transformation       = createParams.firstValueFor( simx.components.renderer.jvr.ontology.types.Transformation )
+    val material             = makeMeshMaterial( given.firstValueFor( simx.core.ontology.types.Texture ))
+    val geometry             = asMesh( given.firstValueFor( simx.core.ontology.types.Mesh ) )
+    //
+    val shape     = new ShapeNode("mesh_" + entity.id, geometry, material)
+    val scaleNode = new GroupNode( shape.getName + "_scale" )
+    val hullNode  = new GroupNode( shape.getName + "_hull" )
+    //
+    shape.setTransform( new Transform )
+    hullNode.setTransform( transformation )
+    scaleNode.setTransform( scale )
+
+    hullNode.addChildNode( scaleNode )
+    scaleNode.addChildNode( shape )
+
+    entityToNodeMap     = entityToNodeMap     + (entity -> List(hullNode))
+  }
+
+  private def insertMesh( sender: SVarActor.Ref, entity : Entity, aspect : EntityAspect)  {
+    val createParams = aspect.getCreateParams
+    val parentElement  = createParams.getFirstValueFor( simx.core.ontology.types.ParentElement )
+    entityToNodeMap.get(entity).collect { case hullNodeList =>
+      val hullNode = hullNodeList.head
+      parentElement match {
+        case Some( e ) => entityToNodeMap( entity ).head.addChildNode( hullNode ) //TODO: maybe BAD
+        case None => sceneRoot.addChildNode( hullNode )
+      }
+
+      //update mesh
+      //TODO: check if the node has been removed
+      getShapeChild(hullNode).collect {
+        case shapeNode =>
+          entity.getSVars(simx.core.ontology.types.Mesh).collect   { case svar => svar._2.observe{ mesh => shapeNode.setGeometry(asMesh(mesh)) } }
+          entity.getSVars(simx.core.ontology.types.Mesh).collect   { case svar => svar._2.get{ mesh => shapeNode.setGeometry(asMesh(mesh)) } }
+          entity.getSVars(simx.core.ontology.types.Texture).collect{ case svar => svar._2.observe{ tex => shapeNode.setMaterial(makeMeshMaterial(tex)) } }
+          entity.getSVars(simx.core.ontology.types.Texture).collect{ case svar => svar._2.get{ tex => shapeNode.setMaterial(makeMeshMaterial(tex)) } }
+      }
+
+      addSVarUpdateFunctions(
+        entity.getSVars( simx.components.renderer.jvr.ontology.types.Transformation ).head._2,      //TODO: maybe BAD
+        (t: Transform) => hullNode.setTransform(t),
+        hullNode.getTransform
+      )
+      sender ! ElementInjected( entity, aspect )
+    }
+
+
+
+  }
+
+  private def asMesh(in : Any) : Geometry = in match{
+    case geom : Geometry => geom
+    case something => throw new Exception("Error " + something.asInstanceOf[AnyRef].getClass.getCanonicalName +
+      " is no instance of de.bht.jvr.core.Geometry")
+  }
+
+  private def makeMeshMaterial(tex : Any) : ShaderMaterial = {
+    val sm = new ShaderMaterial
+    val avs = new java.io.File("pipeline_shader/myShader.vs")
+    val afs = new java.io.File("pipeline_shader/myShader.fs")
+    val amb = new ShaderProgram(avs, afs)
+
+
+    val dvs = new java.io.File("pipeline_shader/phong_lighting.vs")
+    val dfs = new java.io.File("pipeline_shader/phong_lighting.fs")
+    val dmb = new ShaderProgram(dvs, dfs)
+
+    sm.setShaderProgram("AMBIENT", amb)
+    sm.setUniform("AMBIENT",  "jvr_Material_Ambient",   new UniformColor(new Color(0.3f, 0.3f, 0.3f, 1.0f)))
+
+    sm.setShaderProgram("LIGHTING", dmb)
+    sm.setUniform("LIGHTING", "jvr_Material_Diffuse",   new UniformColor(new Color(0.5f, 0.5f, 0.5f, 1.0f)))
+    sm.setUniform("LIGHTING", "jvr_Material_Specular",  new UniformColor(new Color(0.5f, 0.5f, 0.5f, 1.0f)))
+    sm.setUniform("LIGHTING", "jvr_Material_Shininess", new UniformFloat(10))
+
+    tex match {
+      case tex : TextureData =>
+        val t = new Texture2D(tex.size.x, tex.size.y, tex.data)
+        sm.setTexture("AMBIENT",  "jvr_Texture0", t)
+        sm.setTexture("LIGHTING", "jvr_Texture0", t)
+        sm.setUniform("LIGHTING", "jvr_UseTexture0", new UniformBool(true))
+        sm.setUniform("AMBIENT",  "jvr_UseTexture0", new UniformBool(true))
+      case _ =>
+        sm.setUniform("AMBIENT",  "jvr_UseTexture0", new UniformBool(false))
+        sm.setUniform("LIGHTING", "jvr_UseTexture0", new UniformBool(false))
+    }
+
+    sm
+  }
+
+  private def getShapeChild( parent : GroupNode) : Option[ShapeNode] = {
+    val iterator = parent.getChildNodes.iterator()
+    while (iterator.hasNext){
+      val found = parent.getChildNodes.iterator().next() match {
+        case shapeNode : ShapeNode => Some(shapeNode)
+        case groupNode : GroupNode => getShapeChild(groupNode)
+        case _ => None
+      }
+      if (found.isDefined)
+        return found
+    }
+    None
+  }
+
   private def createExistingNode( sender: SVarActor.Ref, entity : Entity, aspect : EntityAspect ) {
     val subElement = aspect.getCreateParams.firstValueFor( oTypes.SubElement )
     val n : SceneNode = Finder.find( sceneRoot, classOf[SceneNode], subElement )
     val worldTransform = n.getWorldTransform( sceneRoot )
-    val scale = aspect.getCreateParams.firstValueFor(types.Scale)
-    val shaderEffects = aspect.getCreateParams.getAllValuesFor( types.ShaderEffect )
+    val scale = aspect.getCreateParams.firstValueFor(ontology.types.Scale)
+    val shaderEffects = aspect.getCreateParams.getAllValuesFor( ontology.types.ShaderEffect )
 
     if( !shaderEffects.isEmpty ) {
-      val shaderEffect = aspect.getCreateParams.firstValueFor( types.ShaderEffect )
+      val shaderEffect = aspect.getCreateParams.firstValueFor( ontology.types.ShaderEffect )
       val shape = Finder.find( n, classOf[ShapeNode], null )
       shape.setMaterial( shaderEffect.getShaderMaterial )
     }
@@ -1239,7 +1482,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
     n.getParentNode.asInstanceOf[GroupNode].removeChildNode( n )
     addInsertion(entity){ e : Entity =>
       val hullNode = insertNode(e, n, innerTranslation.mul(innerScale.invert().mul(rot)), None, Some(scale.mul(innerScale)))
-      singleConnect[Transform](e, (types.Transformation, (in : Transform ) => hullNode.setTransform( in ), hullNode.getTransform), useGet = true)
+      singleConnect[Transform](e, (ontology.types.Transformation, (in : Transform ) => hullNode.setTransform( in ), hullNode.getTransform), useGet = true)
       shaderEffects.foreach(_.bindShaderMaterialToEntity(e))
     }
     sender ! ElementInjected( entity, aspect )
@@ -1265,7 +1508,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
 
   private def bindPostProcessingEffectToEntity( ppe : PostProcessingEffect, entity : Entity ) {
     def setInitialValue[T, U](um : UniformManager[T, U, _]){
-      entity.get(um.ontologyMember.get).head.set( um.converter._2(um.value) )
+      entity.getSVars(um.ontologyMember.get).head._2.set( um.converter._2(um.value) )
     }
 
     for( uniformManager <- ppe.uniformList ) {
@@ -1273,27 +1516,27 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
         setInitialValue(uniformManager)
         uniformManager.value match {
           case v : Texture2D =>
-            entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[TextureData]].observe{
+            entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[TextureData]].observe{
               tex => ppe.getShaderMaterial.setTexture(ppe.nameOfEffect.get, uniformManager.name, new Texture2D(tex.size.x, tex.size.y, tex.data))
             }
           case v : Float =>
-//            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Float]], v )
-            observe( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Float]] )( ( v : Float ) => { ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformFloat( v ) ) } )
+            //            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Float]], v )
+            observe( entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[Float]] )( ( v : Float ) => { ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformFloat( v ) ) } )
           case v : Int =>
-//            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Int]], v )
-            observe( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Int]])( ( v : Int ) => { ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformFloat( v ) ) } )
+            //            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Int]], v )
+            observe( entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[Int]])( ( v : Int ) => { ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformFloat( v ) ) } )
           case v : Boolean =>
-//            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Boolean]], v )
-            observe( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Boolean]])( ( v : Boolean ) => { ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformBool( v ) ) } )
+            //            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Boolean]], v )
+            observe( entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[Boolean]])( ( v : Boolean ) => { ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformBool( v ) ) } )
           case v : Vector2 =>
-//            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Vector2]], v )
-            observe( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Vector2]])( ( v : Vector2 ) => { ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformVector2( v ) ) } )
+            //            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[Vector2]], v )
+            observe( entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[Vector2]])( ( v : Vector2 ) => { ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformVector2( v ) ) } )
           case v : ConstVec4f =>
-//            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[ConstVec4f]], v )
-            observe( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[ConstVec4f]])( ( v : ConstVec4f ) => { ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformVector4( new Vector4(v.x, v.y, v.z, v.w) ) ) } )
+            //            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[ConstVec4f]], v )
+            observe( entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[ConstVec4f]])( ( v : ConstVec4f ) => { ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformVector4( new Vector4(v.x, v.y, v.z, v.w) ) ) } )
           case v : List[_] =>
-//            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[List[Vec2f]]], v.asInstanceOf[List[Vec2f]] )
-            entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[List[Vec2f]]].observe{ ( list : List[Vec2f] ) =>
+            //            set( entity.get( uniformManager.ontologyMember.get ).head.asInstanceOf[SVar[List[Vec2f]]], v.asInstanceOf[List[Vec2f]] )
+            entity.getSVars( uniformManager.ontologyMember.get ).head._2.asInstanceOf[SVar[List[Vec2f]]].observe{ ( list : List[Vec2f] ) =>
               ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name + "_size", new UniformInt( list.size ) )
               if( list.isEmpty ) {
                 ppe.getShaderMaterial.setUniform( ppe.nameOfEffect.get, uniformManager.name, new UniformVector2( new Vector2( 0.0f, 0.0f ) ) )
@@ -1308,7 +1551,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap  with IODevice
   }
 
   private def createPostProcessingEffect( sender: SVarActor.Ref, entity : Entity, aspect : EntityAspect ) {
-    val ppe = aspect.getCreateParams.getFirstValueFor( simx.components.renderer.jvr.types.PostProcessingEffect ).get
+    val ppe = aspect.getCreateParams.getFirstValueFor( simx.components.renderer.jvr.ontology.types.PostProcessingEffect ).get
     addPostProcessingEffect( entity, ppe )
     sender ! ElementInjected( entity, aspect )
   }

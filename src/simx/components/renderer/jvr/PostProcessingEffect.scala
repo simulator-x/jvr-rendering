@@ -31,6 +31,7 @@ import de.bht.jvr.math.{Vector4, Vector2}
 import simplex3d.math.floatx.{ConstVec4f, Vec2f}
 import simx.core.helper.TextureData
 import simx.core.entity.description.SVal
+import scala.annotation.meta.field
 
 /**
  * This class implements a domain specific language to configure post processing effects that are renderer by jVR.
@@ -118,7 +119,7 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
   /**
    * The shader material that is constructed for this post processing effect.
    */
-  @transient private var shaderMaterial : Option[ShaderMaterial] = None
+  @(transient @field) private var shaderMaterial : Option[ShaderMaterial] = None
 
   /**
    * The name under which the time since the last frame is provided to the shader.
@@ -470,7 +471,7 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
     var value : Option[T] = None
     for( uniformManager <- this.uniformList ) {
       if( uniformManager.ontologyMember.isDefined && uniformManager.ontologyMember.get == sVarDescription ) {
-        value = Some( uniformManager.ontologyMember.get.defaultValue().asInstanceOf[T] )
+        value = Some( uniformManager.value.asInstanceOf[T] )
       }
     }
     value.get
