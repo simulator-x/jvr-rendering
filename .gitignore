@@ -1,0 +1,6 @@
+.DS_Store
+*~
+target/**
+*.log
+lib_managed/**/*
+lib_managed/*
