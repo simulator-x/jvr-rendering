@@ -21,15 +21,16 @@
 package simx.components.renderer.jvr
 
 
+import de.bht.jvr.core.Transform
 import simx.core.components.renderer.setup._
 import simx.core.entity.description._
 import simx.core.components.renderer.{GraphicsComponentAspect, GraphicsComponent}
 import simx.core.component.Frequency
 import de.bht.jvr.math.Matrix4
 import simx.core.svaractor.SVarActor
-import simx.core.ontology.Symbols
+import simx.core.ontology.{types, Symbols, EntityDescription}
 import simx.core.components.io.IODeviceProvider
-import simx.core.entity.typeconversion.{Converter, ConvertibleTrait}
+import simx.core.entity.typeconversion.{TypeInfo, Converter, ConvertibleTrait}
 import simx.core.entity.component.EntityCreationHandling
 import simx.core.entity.Entity
 import simx.core.ontology.entities.User
@@ -37,7 +38,6 @@ import ontology.types._
 import simx.core.ontology.types.{DisplaySetupDescription, Color}
 import simx.core.components.renderer.createparameter.VRUser
 import simx.core.components.renderer.messages.{EffectsConfiguration, ConfigureRenderer}
-import simx.core.ontology.EntityDescription
 import simx.core.component.Triggered
 import simx.core.helper.TextureData
 import simplex3d.math.floatx.ConstMat4f
@@ -90,17 +90,21 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
 
     lastknownConfig = SValSet(
       simx.core.ontology.types.DisplaySetupDescription(aspect.getCreateParams.firstValueFor(simx.core.ontology.types.DisplaySetupDescription)),
-      simx.core.ontology.types.EffectsConfiguration(aspect.getCreateParams.firstValueFor(simx.core.ontology.types.EffectsConfiguration))
+      simx.core.ontology.types.EffectsConfiguration(aspect.getCreateParams.firstValueFor(simx.core.ontology.types.EffectsConfiguration)),
+      simx.core.ontology.types.Fps(-1)
     )
     lastknownConfig
   }
 
+  private var configEntity : Option[Entity] = None
+
   protected def finalizeConfiguration(e: Entity){
-    e.observe(DisplaySetupDescription).first{ newConfig =>
+    configEntity = Some(e)
+    e.observe(DisplaySetupDescription).head{ newConfig =>
         lastknownConfig.update(DisplaySetupDescription(newConfig))
         configure(lastknownConfig)
     }
-    e.observe(simx.core.ontology.types.EffectsConfiguration).first{ newConfig =>
+    e.observe(simx.core.ontology.types.EffectsConfiguration).head{ newConfig =>
         lastknownConfig.update(simx.core.ontology.types.EffectsConfiguration(newConfig))
         configure(lastknownConfig)
     }
@@ -115,6 +119,7 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
    * The list of render actors.
    */
   private var user : List[Entity] = List()
+  private var registeredUsers = 0
 
   /**
    * The list of actors that are notified if a render window has been closed.
@@ -159,9 +164,10 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
 
   private def configure(params: SValSet, reconfigure : Boolean) {
     info( "Got configuration" )
-    if( JVRConnector.amountOfUser( params.firstValueFor(DisplaySetupDescription) ).intValue() == 1 ) {
+    val userCount = JVRConnector.amountOfUser( params.firstValueFor(DisplaySetupDescription) ).intValue()
+    if( userCount == 1 ) {
       val grouped =  JVRConnector.sortToGroups( JVRConnector.createRenderActorConfigs( params.firstValueFor(DisplaySetupDescription) ) )
-      process( grouped, params.firstValueFor(simx.core.ontology.types.EffectsConfiguration), reconfigure )
+      process( grouped, params.firstValueFor(simx.core.ontology.types.EffectsConfiguration), userCount, reconfigure )
       info( "1 User, processing, Creating user entity " )
     }
   }
@@ -192,7 +198,7 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
    * @param grouped A preprocessed form the display description.
    * @param effectsConfiguration The effectsConfiguration message.
    */
-  private def process( grouped : Map[Int,(List[RenderActorConfig],Frequency)], effectsConfiguration: EffectsConfiguration, reconfigure : Boolean ) {
+  private def process( grouped : Map[Int,(List[RenderActorConfig],Frequency)], effectsConfiguration: EffectsConfiguration, userCount : Int, reconfigure : Boolean ) {
     require( grouped != null, "The parameter 'grouped' must not be 'null'" )
     require( effectsConfiguration != null, "The parameter 'effectsConfiguration' must not be 'null'" )
 
@@ -205,18 +211,19 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
         idToActorMap = idToActorMap.updated(id, actor)
         if (frequency == Triggered()) renderActorsToTrigger = renderActorsToTrigger ::: actor :: Nil
       }
-      process( grouped - id, effectsConfiguration, reconfigure )
+      process( grouped - id, effectsConfiguration, userCount, reconfigure )
     }
 
-    if( grouped.isEmpty ) {
+    if( grouped.isEmpty && registeredUsers < userCount) {
+      registeredUsers += 1
       userDesc.realize{ e =>
-        publishDevice(simx.core.ontology.types.User(new User(e, actorContext)))
+        publishDevice(simx.core.ontology.types.User(new User(e, actorContext)), componentName :: Nil)
         renderActors.foreach( _ ! JVRPublishUserEntity(e) )
       }
       heldPublishElementTasks.foreach(task => {publishElement(task.e, task.aspect, task.ready, task.given)})
       heldPublishElementTasks = Nil
     }
-    else {
+    else if (grouped.nonEmpty) {
       val (id,(configs,frequency)) = grouped.head
       if (idToActorMap.contains(id)){
         handleActor(idToActorMap(id), id, configs, frequency, reconfigure)
@@ -228,6 +235,8 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
         info( "Creating Render Actor for display group {}", id )
         handleActor(createActor(new JVRRenderActor()){ renderActor => }(), id, configs, frequency, reconfigure)
       }
+    } else {
+      info("reconfigured display for " + registeredUsers + " user(s)")
     }
   }
 
@@ -299,7 +308,7 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
    * @tparam T The type of the parameter.
    * @return An SVal to create the SVar.
    */
-  private def combine[T]( c : ConvertibleTrait[T], ppe : PostProcessingEffect ) : SVal[T] =
+  private def combine[T]( c : ConvertibleTrait[T], ppe : PostProcessingEffect ) : SVal[T,TypeInfo[T,T]] =
     c( ppe.getValueForSVarDescription( c ) )
 
   private case class PublishElementTask(e : Entity, aspect : EntityAspect, ready : SValSet, given : SValSet)
@@ -383,6 +392,17 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
 
   addHandler[JVRRenderWindowClosed] { msg =>
     for( o <- closeObserver ) o ! msg
+  }
+
+  private var lastFrame = -1L
+
+  addHandler[JVRFrameFinished]{
+    msg => configEntity.collect{
+      case cfgEntity =>
+        val frameTime = msg.nanoTime - lastFrame
+        cfgEntity.set(types.Fps(1000000000.0f/frameTime))
+        lastFrame = msg.nanoTime
+    }
   }
 
   addHandler[SetAmbientColor]{
@@ -680,9 +700,11 @@ object JVRConnector {
    */
   val transformConverter = new Converter(Transformation, Scale, ViewPlatform, HeadTransform)(simx.core.ontology.types.Transformation) {
 
-    override def canRevert(to: ConvertibleTrait[_], from: ConvertibleTrait[_]) = true
+    override def canRevert(to: ConvertibleTrait[_], from: ConvertibleTrait[_]) =
+      to.isSubtypeOf(ontology.types.Transformation) && from.isSubtypeOf(simx.core.ontology.types.Transformation)
 
-    override def canConvert(from: ConvertibleTrait[_], to: ConvertibleTrait[_]) = true
+    override def canConvert(from: ConvertibleTrait[_], to: ConvertibleTrait[_]) =
+      from.isSubtypeOf(ontology.types.Transformation) && to.isSubtypeOf(simx.core.ontology.types.Transformation)
 
     override def revert(from: ConstMat4f) : de.bht.jvr.core.Transform =
 
@@ -788,6 +810,8 @@ object EyeToRender extends Enumeration {
   val Both = Value("Both")
 }
 
+case class JVRFrameFinished(renderActor : SVarActor.Ref, nanoTime : Long)
+
 object JVRDebugSettings {
   final val printFPS = false
 }
@@ -800,7 +824,7 @@ case class JVRComponentAspect(
                                )
   extends GraphicsComponentAspect[JVRConnector](name){
   def getComponentFeatures: Set[ConvertibleTrait[_]] =
-    Set(DisplaySetupDescription, simx.core.ontology.types.EffectsConfiguration)
+    Set(DisplaySetupDescription, simx.core.ontology.types.EffectsConfiguration, types.Fps)
   def getCreateParams: NamedSValSet = NamedSValSet(aspectType,
     DisplaySetupDescription(displaySetup),
     simx.core.ontology.types.EffectsConfiguration(effectsConfiguration)

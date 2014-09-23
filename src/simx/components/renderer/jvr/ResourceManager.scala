@@ -21,8 +21,8 @@
 package simx.components.renderer.jvr
 
 import java.io.File
+import simx.core.entity.typeconversion.TypeInfo._
 import simx.core.helper.Loggable
-import scala.reflect.runtime.universe.TypeTag
 import de.bht.jvr.collada14.loader.ColladaLoader
 import de.bht.jvr.core.{ShaderProgram, Texture2D, GroupNode, SceneNode}
 import simx.core.svaractor.{SingletonActor, SVarActor}
@@ -53,9 +53,19 @@ class ResourceManager extends SVarActor with Loggable {
   /**
    * Cached scene graph nodes.
    */
-  var sceneNodes: Map[File,SceneNode] = Map()
+  private val sceneNodes = collection.mutable.Map[File,SceneNode]()
 
-  private var loading = Map[File, List[SceneNode => Any]]()
+  /**
+   * Cached textures.
+   */
+  private val textures = collection.mutable.Map[File,Texture2D]()
+
+  /**
+   * Cached shader programs.
+   */
+  private val shaderPrograms = collection.mutable.Map[List[File],ShaderProgram]()
+
+  private val loading = collection.mutable.Map[File, List[SceneNode => Any]]()
 
   private def getLoading(f : File) = {
     loading.getOrElse(f, Nil)
@@ -73,25 +83,19 @@ class ResourceManager extends SVarActor with Loggable {
         info("Loading scene element from file: {}", file.getName )
         loading get file match {
           case None =>
-            loading = loading.updated(file, Nil)
+            loading.update(file, Nil)
             delayedReplyWith[GroupNode](asyncLoad[File, SceneNode](ColladaLoader.load, file)){
             loaded  : GroupNode =>
-              sceneNodes = sceneNodes + (file -> loaded )
+              sceneNodes.update(file, loaded )
               getLoading(file).foreach(_.apply(new GroupNode().addChildNode( loaded )))
               new GroupNode().addChildNode( loaded )
           }
           case Some(list) =>
-            loading = loading.updated(file,  provideAnswer :: list )
+            loading.update(file,  provideAnswer :: list )
             DelayedAnswer
         }
     }
   }
-
-
-  /**
-   * Cached textures.
-   */
-  var textures : Map[File,Texture2D] = Map()
 
   addHandler[AskTextureFile]{ msg =>
     val file = msg.f
@@ -105,7 +109,7 @@ class ResourceManager extends SVarActor with Loggable {
         info( "Loading texture: {}", file.getName  )
         delayedReplyWith[Texture2D](asyncLoad[File, Texture2D]( new Texture2D(_), file) ){
           tex : Texture2D =>
-            textures = textures + (file -> tex)
+            textures.update(file, tex)
             tex
         }
     }
@@ -118,17 +122,10 @@ class ResourceManager extends SVarActor with Loggable {
       provideAnswer(files.map(textures.apply))
     else delayedReplyWith[Seq[(File, Texture2D)]](asyncLoad[Iterable[File], Seq[(File, Texture2D)]]( { _.map{ f => f -> textures.getOrElse(f, new Texture2D(f)) }.toSeq }, files ) ){
       texes : Seq[(File, Texture2D)] =>
-        texes.map{ tuple => textures = textures + (tuple._1 -> tuple._2) }
+        texes.map{ tuple => textures.update(tuple._1, tuple._2) }
         texes
     }
   }
-
-
-  /**
-   * Cached shader programs.
-   */
-  var shaderPrograms: Map[List[File],ShaderProgram] = Map()
-
 
   addHandler[AskShaderProgram]{ msg =>
     val shader = msg.set
@@ -141,7 +138,7 @@ class ResourceManager extends SVarActor with Loggable {
       case None =>
         info( "Loading shader program: {} and {}", shader.head.getName, shader.tail.head.getName  )
         val loaded = new ShaderProgram( shader.toArray : _* )
-        shaderPrograms = shaderPrograms + (shader -> loaded)
+        shaderPrograms.update(shader, loaded)
         provideAnswer(loaded)
     }
   }
@@ -152,11 +149,11 @@ class ResourceManager extends SVarActor with Loggable {
     require( file.exists, "The parameter 'file' must point to a existing file." )
   }
 
-  protected def asyncLoad[T : TypeTag, U]( loadFunc : T => U , file : T) =
+  protected def asyncLoad[T : DataTag, U]( loadFunc : T => U , file : T) =
     ask(createActor(new LoaderActor(loadFunc))(a => {})(), LoadFile(file)) _
 
   protected case class LoadFile[T](file : T)
-  protected class LoaderActor[T : TypeTag, U](loader : T => U) extends SVarActor{
+  protected class LoaderActor[T : DataTag, U](loader : T => U) extends SVarActor{
     addHandler[LoadFile[T]]{ msg =>
       val retVal = loader( msg.file )
       context.stop(self)

@@ -23,13 +23,13 @@ package simx.components.renderer.jvr
 import de.bht.jvr.core.pipeline.Pipeline
 import de.bht.jvr.core.{Texture2D, ShaderProgram, ShaderMaterial}
 import java.io.{ObjectInputStream, ObjectOutputStream, File}
+import simx.core.helper.TextureData
 import simx.core.ontology.SVarDescription
 import de.bht.jvr.util.Color
 import simx.core.entity.typeconversion.ConvertibleTrait
 import de.bht.jvr.core.uniforms._
 import de.bht.jvr.math.{Vector4, Vector2}
 import simplex3d.math.floatx.{ConstVec4f, Vec2f}
-import simx.core.helper.TextureData
 import simx.core.entity.description.SVal
 import scala.annotation.meta.field
 
@@ -131,7 +131,7 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
   /**
    * Textures and the names under which they are provided to the shader.
    */
-  private[jvr] var images : Map[String,Texture2D] = Map()
+  private[jvr] var images : Map[String,String] = Map()
 
   /**
    * Indicates if the effect is an overlay like an interface. The result is not written to a new frame buffer object,
@@ -302,13 +302,13 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
   /**
    * This method adds a texture texture to the shader.
    *
-   * @param tex The texture.
-   * @return The object to construct the texture description.
+   * param tex The texture.
+   * return The object to construct the texture description.
    */
-  def provideImage( tex : Texture2D ) : TextureMapper = {
+  /**def provideImage( tex : Texture2D ) : TextureMapper = {
     require( tex != null, "The parameter 'name' must not be 'null'!" )
     new TextureMapper( tex, this )
-  }
+  }  */
 
 
 
@@ -323,8 +323,8 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
       val sm = new ShaderMaterial( nameOfEffect.get, new ShaderProgram( shaderFiles: _* ) )
       for( uniform <- uniformList ) {
         uniform.value match {
-          case v : Texture2D =>
-            sm.setTexture( nameOfEffect.get, uniform.name, v )
+          case v : TextureData => //de.bht.jvr.core.Texture2D =>
+            sm.setTexture( nameOfEffect.get, uniform.name, new Texture2D(v.size.x, v.size.y, v.data) )
           case otherValue => val uniformValue = otherValue match {
             case v : Float =>
               new UniformFloat( v )
@@ -339,13 +339,16 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
             case v : List[_] =>
               sm.setUniform( nameOfEffect.get, uniform.name + "_size", new UniformInt( v.size ) )
               if( v.isEmpty ) {
-                new UniformVector2( new Vector2( 0.0f, 0.0f ) )
+                if(simx.core.ontology.types.Vector4List >@ uniform.ontologyMember.get) new UniformVector4( new Vector4( 0.0f, 0.0f, 0f, 0f ) )
+                else new UniformVector2( new Vector2( 0.0f, 0.0f ) )
               } else {
                 v.head match {
-                  case h : Vec2f => {
+                  case h : Vec2f =>
                     val jvrList = v.asInstanceOf[List[Vec2f]].map(s3dVec => {new Vector2(s3dVec.x, s3dVec.y)})
                     new UniformVector2( jvrList.toSeq.toArray : _* )
-                  }
+                  case h : ConstVec4f =>
+                    val jvrList = v.asInstanceOf[List[ConstVec4f]].map(s3dVec => {new Vector4(s3dVec.x, s3dVec.y, s3dVec.z, s3dVec.w)})
+                    new UniformVector4( jvrList.toSeq.toArray : _* )
                 }
               }
           }
@@ -378,8 +381,8 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
     for( (fbo,name) <- usedFrameBufferObjects ) pipeline.bindColorBuffer( name, fbo, 0 )
 
     val shaderMaterial = getShaderMaterial
-    for( (name, image) <- images )
-      shaderMaterial.setTexture( nameOfEffect.get, name, image )
+    for( (name, imagePath) <- images )
+      shaderMaterial.setTexture( nameOfEffect.get, name, ResourceManager.loadTexture( new File( imagePath ) ) )
 
     pipeline.drawQuad( shaderMaterial, nameOfEffect.get )
     switchFBO
@@ -421,12 +424,9 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
    * @param tex The texture
    * @param ppe The post processing effect.
    */
-  class TextureMapper( val tex : Texture2D, val ppe : PostProcessingEffect ) {
+  class TextureMapper( val tex : String, val ppe : PostProcessingEffect ) {
     require( tex != null, "The parameter 'tex' must not be 'null'!" )
     require( ppe != null, "The parameter 'ppe' must not be 'null'!" )
-
-    def this(file : String, ppe : PostProcessingEffect) =
-      this(ResourceManager.loadTexture( new File( file ) ), ppe)
 
 
     /**
@@ -478,7 +478,7 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
 
   }
 
-  def getCreateParameters : Seq[SVal[_]] = {
+  def getCreateParameters : Seq[SVal[_,_]] = {
     def combine[T, U](um : UniformManager[T, U, _]) =
       um.ontologyMember.get.apply(um.converter._2(um.value))
 

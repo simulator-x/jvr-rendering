@@ -26,7 +26,7 @@ import simx.core.components.renderer.createparameter.{ReadFromElseWhere, Rendere
 import simx.core.ontology.types.{ColladaFile, Transformation, Scale, SubElement}
 import simx.core.entity.Entity
 import simx.core.ontology.{SVarDescription, GroundedSymbol, Symbols}
-import simx.core.entity.typeconversion.ConvertibleTrait
+import simx.core.entity.typeconversion.{TypeInfo, ConvertibleTrait}
 import simx.core.entity.description.{SVal, SValSeq}
 import simx.core.helper.Execute
 import simx.core.svaractor.SVarActor
@@ -204,7 +204,7 @@ case class JVRExistingNode(
   }
 
   private def myCombine = {
-    def toSVal[T, B](in : SVarDescription[T, B]) : SVal[T] =
+    def toSVal[T, B](in : SVarDescription[T, B]) : SVal[T,TypeInfo[T,T]] =
       in.apply(shaderEffect.getValueForSVarDescription(in))
 
     shaderEffect.getSVarDescriptions.map(x => toSVal(x))
@@ -265,7 +265,7 @@ case class JVRShapeFromFile( file: String,
   }
 
   private def myCombine = {
-    def toSVal[T, B](in : SVarDescription[T, B]) : SVal[T] =
+    def toSVal[T, B](in : SVarDescription[T, B]) : SVal[T,TypeInfo[T,T]] =
       in.apply(shaderEffect.getValueForSVarDescription(in))
 
     shaderEffect.getSVarDescriptions.map(x => toSVal(x))

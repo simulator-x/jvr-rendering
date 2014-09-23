@@ -165,7 +165,7 @@ private[jvr] case class JVRRenderActorConfigComplete()(implicit self : SVarActor
  * the [[simx.components.renderer.jvr.JVRRenderActor]].
  *
  * It signals the JVRRenderActor to render the next frame. The sender of this message will receive a
- * [[simx.components.renderer.jvr.FinishedFrame]] message.
+ * simx.components.renderer.jvr.FinishedFrame message.
  *
  * @author Stephan Rehfeld
  */

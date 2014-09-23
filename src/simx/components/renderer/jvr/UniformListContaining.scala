@@ -80,8 +80,7 @@ class UniformManager[T, U, P <: UniformListContaining[P] ]( val name: String, va
   require( name != "", "The parameter 'name' must not be an empty string!" )
   require( parent != null, "The parameter 'parent' must not be 'null'!" )
 
-  val one : List[UniformManager[_, _, P]] = this :: Nil
-  parent.uniformList = parent.uniformList ::: one
+  parent.uniformList = parent.uniformList ::: List[UniformManager[_, _, P]](this)
 
   def convertedBy[V](converter : (V => T, T => V)) : UniformManager[T, V, P] = {
     parent.uniformList = parent.uniformList.filterNot( _ == this )
