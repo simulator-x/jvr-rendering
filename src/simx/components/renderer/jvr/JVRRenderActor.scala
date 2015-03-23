@@ -28,6 +28,7 @@ import de.bht.jvr.math.{Vector2, Vector4}
 import de.bht.jvr.core._
 import de.bht.jvr.renderer._
 import simx.core.ontology.types.PartOf
+import simx.core.svaractor.semantictrait.base.{Thing, Base}
 import simx.core.svaractor.unifiedaccess.{Remove, Update, Add, ?}
 import uniforms._
 import pipeline.{PipelineCommandPtr, Pipeline}
@@ -38,7 +39,7 @@ import simx.core.entity.Entity
 import simx.core.entity.description._
 import simx.core.entity.typeconversion.{TypeInfo, ConvertibleTrait}
 import simx.core.helper.{TextureData, SVarUpdateFunctionMap}
-import simx.core.ontology.{types => oTypes, SVarDescription, Symbols}
+import simx.core.ontology.{types => oTypes, SValDescription, Symbols}
 import simx.core.svaractor.{StateParticle, SVar, SVarActor}
 import simx.core.worldinterface.eventhandling.EventProvider
 
@@ -61,7 +62,7 @@ import simplex3d.math.ConstVec2i
 class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceProvider with EventProvider {
 
   protected def removeFromLocalRep(e : Entity){
-    println(this + " should remove " + e)
+    //    println(this + " should remove " + e)
   }
 
   /**
@@ -272,9 +273,9 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
     regroup(msg.e, parent, msg.convertTransform)
     msg.sender ! RegroupApplied(msg.e, msg.target)
   }
-                    //child,              parent
+  //child,              parent
   private def regroup(toRegroup : Entity, target : GroupNode, convertTransform : Boolean = true) {
-    println("regrouping " + toRegroup.getSimpleName + " under " + target.getName)
+    //    println("regrouping " + toRegroup.getSimpleName + " under " + target.getName)
     entityToNodeMap.get(toRegroup)map(_.foreach { x =>
       regroup(x, target, convertTransform).collect {
         case newTransformation =>
@@ -438,7 +439,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
       }
     }
 
-    def recurseKeys(e : Entity, remaining : List[(Int, SVarDescription[Boolean, Boolean])]) {
+    def recurseKeys(e : Entity, remaining : List[(Int, SValDescription[Boolean, Boolean, _ <: Base, _ <: Thing])]) {
       remaining match {
         case head :: tail =>
           e.set( head._2(false), { next : Entity =>
@@ -597,7 +598,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
 
     window.addMouseListener( new MouseListener {
       val buttons = Map[Int, ConvertibleTrait[Boolean]](1 -> oTypes.Button_Left, 2 -> oTypes.Button_Center, 3 -> oTypes.Button_Right)
-      def sett[T : ClassTag]( sval : SVal[T,TypeInfo[T,T]] ){
+      def sett[T : ClassTag]( sval : SVal[T,TypeInfo[T,T], _ <: Base, _ <: Thing] ){
         if(mouseMappings.contains(sval.typedSemantics)) mouse.get(winId).collect{case m => m.set( sval )
           //        mouseMappings.find( _.typedSemantics == sval.typedSemantics).collect{
           //          case t => mouse.get(winId).collect{case m => m.set( sval ) }
@@ -633,11 +634,13 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
       def mouseWheelMoved(e: MouseEvent){}
 
       private def updatePickRay(e: MouseEvent, state : Int, sendEvent : Boolean = true) {
-        val pickRay = Picker.getPickRay(sceneRoot, cameras.head._2.head._2, e.getNormalizedX, e.getNormalizedY)
-        sett(oTypes.Origin(ConstVec3f(pickRay.getRayOrigin.x, pickRay.getRayOrigin.y, pickRay.getRayOrigin.z)))
-        sett(oTypes.Direction(ConstVec3f(pickRay.getRayDirection.x, pickRay.getRayDirection.y,pickRay.getRayDirection.z)))
-        if (sendEvent)
-          self ! RequestPick(pickRay, state)
+        if (cameras.nonEmpty) {
+          val pickRay = Picker.getPickRay(sceneRoot, cameras.head._2.head._2, e.getNormalizedX, e.getNormalizedY)
+          sett(oTypes.Origin(ConstVec3f(pickRay.getRayOrigin.x, pickRay.getRayOrigin.y, pickRay.getRayOrigin.z)))
+          sett(oTypes.Direction(ConstVec3f(pickRay.getRayDirection.x, pickRay.getRayDirection.y, pickRay.getRayDirection.z)))
+          if (sendEvent)
+            self ! RequestPick(pickRay, state)
+        }
       }
     })
   }
@@ -676,9 +679,10 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
   }
 
   var frameBegins = List[Long]()
+  private var announcedMissingViewerInLastFrame = false
 
   addHandler[RenderNextFrame] {
-    case msg =>
+    msg =>
       if( remoteStepCount.isDefined )
         println( remoteStepCount.get )
       if(JVRDebugSettings.printFPS) {
@@ -700,7 +704,13 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
         s.setTransform( camera.getEyeWorldTransform( sceneRoot ).extractTranslation )
       }
 
-      if( viewer.isEmpty ) println("Viewer is not set!" )
+      if( viewer.nonEmpty )
+        announcedMissingViewerInLastFrame = false
+      else if (!announcedMissingViewerInLastFrame) {
+        announcedMissingViewerInLastFrame = true
+        println("Viewer is not set!")
+      }
+
       val deltaT = (System.nanoTime - this.lastFrame) / 1000.0f
       for( ppe <- this.postProcessingEffects ) ppe.setCurrentDeltaT( deltaT )
 
@@ -714,7 +724,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
 
   addHandler[PublishSceneElement] {
     msg =>
-      msg.aspect.getCreateParams.semantics match {
+      Match(msg.aspect.getCreateParams.semantics) {
         case Symbols.existingNode         => createExistingNode( msg.sender, msg.e, msg.aspect )
         case Symbols.mirror               => createMirror( msg.sender, msg.e, msg.aspect, msg.providings )
         case Symbols.pointLight           => createPointLight( msg.sender, msg.e, msg.aspect, msg.providings )
@@ -1202,7 +1212,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
             }
 
             textureSVar._2.observe(handleTexUpdate _)
-            textureSVar._2.get(handleTexUpdate _)
+            //textureSVar._2.get(handleTexUpdate _)
           })
 
 
@@ -1256,7 +1266,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
   }
 
   addHandler[InsertEntity]{
-    msg => toInsert.get(msg.toInsert) match {
+    msg => Match(toInsert.get(msg.toInsert)) {
       case Some(funcList) =>
         msg.toInsert.getSVars(oTypes.Name).headOption match {
           case Some((_, svar)) =>

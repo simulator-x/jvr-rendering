@@ -27,6 +27,8 @@ import de.bht.jvr.collada14.loader.ColladaLoader
 import de.bht.jvr.core.{ShaderProgram, Texture2D, GroupNode, SceneNode}
 import simx.core.svaractor.{SingletonActor, SVarActor}
 
+import scala.reflect.ClassTag
+
 // TODO: URGENT, Rewrite it!
 
 /**
@@ -84,12 +86,12 @@ class ResourceManager extends SVarActor with Loggable {
         loading get file match {
           case None =>
             loading.update(file, Nil)
-            delayedReplyWith[GroupNode](asyncLoad[File, SceneNode](ColladaLoader.load, file)){
-            loaded  : GroupNode =>
-              sceneNodes.update(file, loaded )
-              getLoading(file).foreach(_.apply(new GroupNode().addChildNode( loaded )))
-              new GroupNode().addChildNode( loaded )
-          }
+            delayedReplyWith(asyncLoad(file, (f : File) => ColladaLoader.load(f))){
+              loaded =>
+                sceneNodes.update(file, loaded )
+                getLoading(file).foreach(_.apply(new GroupNode().addChildNode( loaded )))
+                new GroupNode().addChildNode( loaded )
+            }
           case Some(list) =>
             loading.update(file,  provideAnswer :: list )
             DelayedAnswer
@@ -107,7 +109,7 @@ class ResourceManager extends SVarActor with Loggable {
         provideAnswer(tex)
       case None =>
         info( "Loading texture: {}", file.getName  )
-        delayedReplyWith[Texture2D](asyncLoad[File, Texture2D]( new Texture2D(_), file) ){
+        delayedReplyWith(asyncLoad[File, Texture2D](file, new Texture2D(_)) ){
           tex : Texture2D =>
             textures.update(file, tex)
             tex
@@ -116,14 +118,17 @@ class ResourceManager extends SVarActor with Loggable {
   }
 
   addHandler[AskTextureFiles]{ msg =>
-    val files = msg.fs
+    val files = msg.fs.toSeq
     files.foreach(checkFile)
     if (files.forall(textures.keySet.contains))
       provideAnswer(files.map(textures.apply))
-    else delayedReplyWith[Seq[(File, Texture2D)]](asyncLoad[Iterable[File], Seq[(File, Texture2D)]]( { _.map{ f => f -> textures.getOrElse(f, new Texture2D(f)) }.toSeq }, files ) ){
-      texes : Seq[(File, Texture2D)] =>
-        texes.map{ tuple => textures.update(tuple._1, tuple._2) }
-        texes
+    else {
+      val (loaded, toLoad) = files.partition(textures.keySet.contains)
+      delayedReplyWith(asyncLoad(toLoad,  (_ : Seq[File]).map{ f => f -> new Texture2D(f) }  ) ) {
+        newTextures =>
+          newTextures.foreach( textures + _ )
+          newTextures ++ loaded.map(f => f -> textures(f))
+      }
     }
   }
 
@@ -149,8 +154,8 @@ class ResourceManager extends SVarActor with Loggable {
     require( file.exists, "The parameter 'file' must point to a existing file." )
   }
 
-  protected def asyncLoad[T : DataTag, U]( loadFunc : T => U , file : T) =
-    ask(createActor(new LoaderActor(loadFunc))(a => {})(), LoadFile(file)) _
+  protected def asyncLoad[T : DataTag, U : DataTag : ClassTag](file : T, loadFunc : T => U ) : (U => Any) => Unit =
+    (handler : U => Any)  => ask[U](spawnActor(new LoaderActor(loadFunc)), LoadFile(file))(handler(_) )
 
   protected case class LoadFile[T](file : T)
   protected class LoaderActor[T : DataTag, U](loader : T => U) extends SVarActor{

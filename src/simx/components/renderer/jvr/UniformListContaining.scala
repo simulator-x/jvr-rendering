@@ -20,7 +20,8 @@
 
 package simx.components.renderer.jvr
 
-import simx.core.ontology.SVarDescription
+import simx.core.ontology.SValDescription
+import simx.core.svaractor.semantictrait.base.{Base, Thing}
 
 /**
  * This is a common base class for the connection between shader uniform and SVarDescription.
@@ -75,7 +76,7 @@ class UniformNameHolder[P <: UniformListContaining[P] ]( name: String, parent : 
  * @tparam T The type of the uniform.
  * @tparam P [[simx.components.renderer.jvr.PostProcessingEffect]] or [[simx.components.renderer.jvr.RenderPass]].
  */
-class UniformManager[T, U, P <: UniformListContaining[P] ]( val name: String, val value : T, var ontologyMember : Option[ SVarDescription[U, _] ], parent : P , val converter : (U => T, T => U)) extends Serializable {
+class UniformManager[T, U, P <: UniformListContaining[P] ]( val name: String, val value : T, var ontologyMember : Option[ SValDescription[U, _, _ <: Base, _ <: Thing] ], parent : P , val converter : (U => T, T => U)) extends Serializable {
   require( name != null, "The parameter 'name' must not be 'null'!" )
   require( name != "", "The parameter 'name' must not be an empty string!" )
   require( parent != null, "The parameter 'parent' must not be 'null'!" )
@@ -85,7 +86,7 @@ class UniformManager[T, U, P <: UniformListContaining[P] ]( val name: String, va
   def convertedBy[V](converter : (V => T, T => V)) : UniformManager[T, V, P] = {
     parent.uniformList = parent.uniformList.filterNot( _ == this )
     ontologyMember match {
-      case Some(x : SVarDescription[V, _]) => new UniformManager(name, value, Some(x.asInstanceOf[SVarDescription[V, _]]), parent, converter)
+      case Some(x : SValDescription[V, _, _ ,_]) => new UniformManager(name, value, Some(x.asInstanceOf[SValDescription[V, _, _ <: Base, _ <: Thing]]), parent, converter)
       case None => new UniformManager(name, value, None, parent, converter)
       case _ => throw new Exception("cannot specify converter after specifying ontology member")
     }
@@ -98,7 +99,7 @@ class UniformManager[T, U, P <: UniformListContaining[P] ]( val name: String, va
    * @param om The SVarDescription for the uniform.
    * @return The altered uniform manager.
    */
-  def isReachableBy( om : SVarDescription[U, _] ) : UniformManager[T, U, P] = {
+  def isReachableBy( om : SValDescription[U, _, _ <: Base, _ <: Thing] ) : UniformManager[T, U, P] = {
     require( om != null, "The parameter 'om' must not be 'null'!" )
     ontologyMember = Some( om )
     this

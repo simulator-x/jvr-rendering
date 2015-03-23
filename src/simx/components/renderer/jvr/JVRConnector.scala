@@ -41,6 +41,7 @@ import simx.core.components.renderer.messages.{EffectsConfiguration, ConfigureRe
 import simx.core.component.Triggered
 import simx.core.helper.TextureData
 import simplex3d.math.floatx.ConstMat4f
+import simx.core.svaractor.semantictrait.base.{Thing, Base}
 import simx.core.worldinterface.naming.NameIt
 
 /**
@@ -308,7 +309,7 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
    * @tparam T The type of the parameter.
    * @return An SVal to create the SVar.
    */
-  private def combine[T]( c : ConvertibleTrait[T], ppe : PostProcessingEffect ) : SVal[T,TypeInfo[T,T]] =
+  private def combine[T]( c : ConvertibleTrait[T], ppe : PostProcessingEffect ) : SVal[T,TypeInfo[T,T],_<:Base, _<:Thing] =
     c( ppe.getValueForSVarDescription( c ) )
 
   private case class PublishElementTask(e : Entity, aspect : EntityAspect, ready : SValSet, given : SValSet)
@@ -386,7 +387,7 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
 
 
   addHandler[RegroupEntity] {
-    case m : RegroupEntity => renderActors.foreach( _ ! m )
+    m : RegroupEntity => renderActors.foreach( _ ! m )
 
   }
 
@@ -409,7 +410,7 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
     msg => renderActors.foreach( _ ! msg )
   }
 
-  addHandler[NotifyOnClose] { case msg =>
+  addHandler[NotifyOnClose] { msg =>
     closeObserver = closeObserver ::: msg.sender :: Nil
   }
 

@@ -24,13 +24,14 @@ import de.bht.jvr.core.pipeline.Pipeline
 import de.bht.jvr.core.{Texture2D, ShaderProgram, ShaderMaterial}
 import java.io.{ObjectInputStream, ObjectOutputStream, File}
 import simx.core.helper.TextureData
-import simx.core.ontology.SVarDescription
+import simx.core.ontology.SValDescription
 import de.bht.jvr.util.Color
 import simx.core.entity.typeconversion.ConvertibleTrait
 import de.bht.jvr.core.uniforms._
 import de.bht.jvr.math.{Vector4, Vector2}
 import simplex3d.math.floatx.{ConstVec4f, Vec2f}
 import simx.core.entity.description.SVal
+import simx.core.svaractor.semantictrait.base.{Thing, Base}
 import scala.annotation.meta.field
 
 /**
@@ -449,8 +450,8 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
    *
    * @return A list of all sVar descriptions provided by this effect.
    */
-  private[jvr] def getSVarDescriptions : List[SVarDescription[_,_]] = {
-    var sVarDescriptions = List[SVarDescription[_,_]]()
+  private[jvr] def getSVarDescriptions : List[SValDescription[_,_, _ <: Base, _ <: Thing]] = {
+    var sVarDescriptions = List[SValDescription[_,_, _ <: Base, _ <: Thing]]()
     for( uniformManager <- this.uniformList ) {
       if( uniformManager.ontologyMember.isDefined ) {
         sVarDescriptions = sVarDescriptions ::: uniformManager.ontologyMember.get :: Nil
@@ -478,7 +479,7 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
 
   }
 
-  def getCreateParameters : Seq[SVal[_,_]] = {
+  def getCreateParameters : Seq[SVal[_,_, _ <: Base, _ <: Thing]] = {
     def combine[T, U](um : UniformManager[T, U, _]) =
       um.ontologyMember.get.apply(um.converter._2(um.value))
 

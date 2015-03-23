@@ -25,12 +25,13 @@ import java.io.File
 import simx.core.components.renderer.createparameter.{ReadFromElseWhere, RendererAspect}
 import simx.core.ontology.types.{ColladaFile, Transformation, Scale, SubElement}
 import simx.core.entity.Entity
-import simx.core.ontology.{SVarDescription, GroundedSymbol, Symbols}
+import simx.core.ontology.{SValDescription, GroundedSymbol, Symbols}
 import simx.core.entity.typeconversion.{TypeInfo, ConvertibleTrait}
 import simx.core.entity.description.{SVal, SValSeq}
 import simx.core.helper.Execute
 import simx.core.svaractor.SVarActor
 import simplex3d.math.floatx.{Mat4f, ConstMat4f}
+import simx.core.svaractor.semantictrait.base.{Thing, Base}
 
 /**
  * This is a common base class for all jVR specific create parameter.
@@ -204,7 +205,7 @@ case class JVRExistingNode(
   }
 
   private def myCombine = {
-    def toSVal[T, B](in : SVarDescription[T, B]) : SVal[T,TypeInfo[T,T]] =
+    def toSVal[T, B](in : SValDescription[T, B, _ <: Base, _ <: Thing]) : SVal[T,TypeInfo[T,T], _ <: Base, _ <: Thing] =
       in.apply(shaderEffect.getValueForSVarDescription(in))
 
     shaderEffect.getSVarDescriptions.map(x => toSVal(x))
@@ -265,7 +266,7 @@ case class JVRShapeFromFile( file: String,
   }
 
   private def myCombine = {
-    def toSVal[T, B](in : SVarDescription[T, B]) : SVal[T,TypeInfo[T,T]] =
+    def toSVal[T, B](in : SValDescription[T, B, _ <: Base, _ <: Thing]) : SVal[T,TypeInfo[T,T], _ <: Base, _ <: Thing] =
       in.apply(shaderEffect.getValueForSVarDescription(in))
 
     shaderEffect.getSVarDescriptions.map(x => toSVal(x))

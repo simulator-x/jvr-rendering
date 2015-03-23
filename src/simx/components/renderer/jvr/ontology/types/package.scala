@@ -5,19 +5,47 @@ package simx.components.renderer.jvr.ontology
  * DO NOT EDIT!
  */
 
+import simx.components.renderer.jvr.ontology.functions.Functions
+import simx.core.ontology.types._
+import simx.core.entity.description.SVal
+
 package object types{
   def init(){}
-	object DiffuseColor extends simx.core.ontology.SVarDescription(simx.core.ontology.types.DiffuseColor as simx.core.ontology.Symbols.diffuseColor withType classOf[de.bht.jvr.util.Color] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#DiffuseColor")
+	object DiffuseColor extends simx.core.ontology.SValDescription(simx.core.ontology.types.DiffuseColor as simx.core.ontology.Symbols.diffuseColor withType classOf[de.bht.jvr.util.Color] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#DiffuseColor") {
+		override def apply(value: dataType) = new DiffuseColor(value)
+	}
+	class DiffuseColor(private val _value : DiffuseColor.dataType) extends SVal(_value, DiffuseColor.valueDescription, DiffuseColor)
 	
-	object HeadTransform extends simx.core.ontology.SVarDescription(simx.core.ontology.types.HeadTransform as simx.core.ontology.Symbols.headTransform withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#HeadTransform")
+	object HeadTransform extends simx.core.ontology.SValDescription(simx.core.ontology.types.HeadTransform as simx.core.ontology.Symbols.headTransform withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#HeadTransform") {
+		override def apply(value: dataType) = new HeadTransform(value)
+	}
+	class HeadTransform(private val _value : HeadTransform.dataType) extends SVal(_value, HeadTransform.valueDescription, HeadTransform)
 	
-	object PostProcessingEffect extends simx.core.ontology.SVarDescription(simx.core.ontology.types.NullType as simx.core.ontology.Symbols.postProcessingEffect withType classOf[simx.components.renderer.jvr.PostProcessingEffect] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/JVR/JVR.owl#PostProcessingEffect")
+	object PostProcessingEffect extends simx.core.ontology.SValDescription(simx.core.ontology.types.NullType as simx.core.ontology.Symbols.postProcessingEffect withType classOf[simx.components.renderer.jvr.PostProcessingEffect] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#PostProcessingEffect") {
+		override def apply(value: dataType) = new PostProcessingEffect(value)
+	}
+	class PostProcessingEffect(private val _value : PostProcessingEffect.dataType) extends SVal(_value, PostProcessingEffect.valueDescription, PostProcessingEffect)
 	
-	object Scale extends simx.core.ontology.SVarDescription(simx.core.ontology.types.Scale as simx.core.ontology.Symbols.scale withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicTypes.owl#Scale")
-	object ShaderEffect extends simx.core.ontology.SVarDescription(simx.core.ontology.types.NullType as simx.core.ontology.Symbols.shaderEffect withType classOf[simx.components.renderer.jvr.ShaderEffect] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/JVR/JVR.owl#ShaderEffect")
-	object SpecularColor extends simx.core.ontology.SVarDescription(simx.core.ontology.types.SpecularColor as simx.core.ontology.Symbols.specularColor withType classOf[de.bht.jvr.util.Color] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#SpecularColor")
+	object Scale extends simx.core.ontology.SValDescription(simx.core.ontology.types.Scale as simx.core.ontology.Symbols.scale withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicTypes.owl#Scale") {
+		override def apply(value: dataType) = new Scale(value)
+	}
+	class Scale(private val _value : Scale.dataType) extends SVal(_value, Scale.valueDescription, Scale)
+	object ShaderEffect extends simx.core.ontology.SValDescription(simx.core.ontology.types.NullType as simx.core.ontology.Symbols.shaderEffect withType classOf[simx.components.renderer.jvr.ShaderEffect] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#ShaderEffect") {
+		override def apply(value: dataType) = new ShaderEffect(value)
+	}
+	class ShaderEffect(private val _value : ShaderEffect.dataType) extends SVal(_value, ShaderEffect.valueDescription, ShaderEffect)
+	object SpecularColor extends simx.core.ontology.SValDescription(simx.core.ontology.types.SpecularColor as simx.core.ontology.Symbols.specularColor withType classOf[de.bht.jvr.util.Color] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#SpecularColor") {
+		override def apply(value: dataType) = new SpecularColor(value)
+	}
+	class SpecularColor(private val _value : SpecularColor.dataType) extends SVal(_value, SpecularColor.valueDescription, SpecularColor)
 	
-	object Transformation extends simx.core.ontology.SVarDescription(simx.core.ontology.types.Transformation as simx.core.ontology.Symbols.transformation withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#Transformation")
+	object Transformation extends simx.core.ontology.SValDescription(simx.core.ontology.types.Transformation as simx.core.ontology.Symbols.transformation withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicTypes.owl#Transformation") {
+		override def apply(value: dataType) = new Transformation(value)
+	}
+	class Transformation(private val _value : Transformation.dataType) extends SVal(_value, Transformation.valueDescription, Transformation)
 	
-	object ViewPlatform extends simx.core.ontology.SVarDescription(simx.core.ontology.types.ViewPlatform as simx.core.ontology.Symbols.viewPlatform withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#ViewPlatform")
+	object ViewPlatform extends simx.core.ontology.SValDescription(simx.core.ontology.types.ViewPlatform as simx.core.ontology.Symbols.viewPlatform withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#ViewPlatform") {
+		override def apply(value: dataType) = new ViewPlatform(value)
+	}
+	class ViewPlatform(private val _value : ViewPlatform.dataType) extends SVal(_value, ViewPlatform.valueDescription, ViewPlatform)
 }

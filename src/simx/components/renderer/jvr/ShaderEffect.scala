@@ -20,7 +20,7 @@
 
 package simx.components.renderer.jvr
 
-import simx.core.ontology.SVarDescription
+import simx.core.ontology.SValDescription
 import java.io.{ObjectInputStream, ObjectOutputStream, File}
 import de.bht.jvr.core.{ShaderProgram, ShaderMaterial}
 import de.bht.jvr.math.Vector2
@@ -28,6 +28,7 @@ import de.bht.jvr.core.uniforms._
 import simx.core.entity.typeconversion.ConvertibleTrait
 import de.bht.jvr.util.Color
 import simx.core.entity.Entity
+import simx.core.svaractor.semantictrait.base.{Thing, Base}
 import simx.core.svaractor.{SVarActor, SVar}
 import simx.core.svaractor.unifiedaccess.EntityUpdateHandling
 import scala.annotation.meta.field
@@ -179,8 +180,8 @@ class ShaderEffect( name : String ) extends Serializable {
    *
    * @return A list of all sVar descriptions provided by this effect.
    */
-  private[jvr] def getSVarDescriptions : List[SVarDescription[_,_]] = {
-    var sVarDescriptions = List[SVarDescription[_,_]]()
+  private[jvr] def getSVarDescriptions : List[SValDescription[_,_, _ <: Base, _ <: Thing]] = {
+    var sVarDescriptions = List[SValDescription[_,_, _ <: Base, _ <: Thing]]()
     for( renderPass <- this.renderPasses ) {
       for( uniformManager <- renderPass.uniformList ) {
         if( uniformManager.ontologyMember.isDefined ) {

@@ -28,6 +28,7 @@ import de.bht.jvr.core.Transform
 import simx.core.component.{Passive, Frequency}
 import simx.core.svaractor.SVarActor
 import simplex3d.math.floatx.ConstMat4f
+import simx.core.svaractor.semantictrait.base.BasicGroundedSymbol
 import simx.core.worldinterface.eventhandling.EventDescription
 import simx.core.ontology.types.OntologySymbol
 import scala.annotation.meta.param
@@ -367,7 +368,8 @@ case class CreateMesh(e : Entity, asp : EntityAspect, given : SValSet, ready : S
 
 case class MeshCreated(entity : Entity, initialValues : SValSet )
 
+object jvrPickRaySelectionEvent extends BasicGroundedSymbol
 object JVRPickEvent extends EventDescription(
-  OntologySymbol('jvrPickRaySelectionEvent),
+  jvrPickRaySelectionEvent,
   simx.core.ontology.types.Entity :: Nil
 )
