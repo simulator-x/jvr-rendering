@@ -80,7 +80,7 @@ class ResourceManager extends SVarActor with Loggable {
     sceneNodes.get(file) match {
       case Some(loaded) =>
         info("Already loaded scene element from file: {}", file.getName )
-        provideAnswer(new GroupNode().addChildNode( loaded ))
+        provideAnswer( loaded )
       case None =>
         info("Loading scene element from file: {}", file.getName )
         loading get file match {
@@ -89,8 +89,8 @@ class ResourceManager extends SVarActor with Loggable {
             delayedReplyWith(asyncLoad(file, (f : File) => ColladaLoader.load(f))){
               loaded =>
                 sceneNodes.update(file, loaded )
-                getLoading(file).foreach(_.apply(new GroupNode().addChildNode( loaded )))
-                new GroupNode().addChildNode( loaded )
+                getLoading(file).foreach(_.apply( loaded ))
+                loaded
             }
           case Some(list) =>
             loading.update(file,  provideAnswer :: list )

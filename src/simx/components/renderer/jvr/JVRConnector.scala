@@ -28,7 +28,7 @@ import simx.core.components.renderer.{GraphicsComponentAspect, GraphicsComponent
 import simx.core.component.Frequency
 import de.bht.jvr.math.Matrix4
 import simx.core.svaractor.SVarActor
-import simx.core.ontology.{types, Symbols, EntityDescription}
+import simx.core.ontology._
 import simx.core.components.io.IODeviceProvider
 import simx.core.entity.typeconversion.{TypeInfo, Converter, ConvertibleTrait}
 import simx.core.entity.component.EntityCreationHandling
@@ -130,7 +130,7 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
   /**
    * The entity description for the user entity.
    */
-  private val userDesc = new EntityDescription( VRUser(), NameIt("User") )
+  private val userDesc = new EntityDescription(List[EntityAspect](VRUser()), 'VrCamera, List[Symbol](), Set[Annotation](), SValSet(simx.core.ontology.types.EntityType(Symbols.camera)))
 
   /**
    * The amount of render actors that already has been configured. This flag is used while starting and configuring all
@@ -246,9 +246,9 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
    * @return the set
    */
   override protected def getAdditionalProvidings(aspect: EntityAspect) = {
-    if (aspect.semanticsEqual(Symbols.shapeFromFile))
-      Set(simx.core.ontology.types.Texture)
-    else
+//    if (aspect.semanticsEqual(Symbols.shapeFromFile))
+//      Set(simx.core.ontology.types.Texture)
+//    else
       Set()
   }
 
@@ -285,7 +285,7 @@ class JVRConnector( name: Symbol = 'renderer ) extends GraphicsComponent(name) w
           ready.addIfNew( combine( sVarDescription, ppe ) )
         publishElement(e, aspect, ready, given)
       case Symbols.shapeFromFile =>
-        ready.addIfNew(simx.core.ontology.types.Texture(JVRConnector.voidTextureData))
+        if(toProvide.contains(simx.core.ontology.types.Texture)) ready.addIfNew(simx.core.ontology.types.Texture(JVRConnector.voidTextureData))
         publishElement(e, aspect, ready, given)
       case Symbols.`meshComponent` =>
         renderActors.foreach( _ ! CreateMesh(e, aspect, given, ready, self))

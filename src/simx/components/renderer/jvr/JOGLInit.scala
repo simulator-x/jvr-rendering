@@ -21,7 +21,7 @@
 package simx.components.renderer.jvr
 
 import simx.core.component.ComponentInitialization
-import javax.media.opengl.GLProfile
+import com.jogamp.opengl.GLProfile
 
 
 /**

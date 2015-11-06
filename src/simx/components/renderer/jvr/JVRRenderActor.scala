@@ -21,8 +21,8 @@
 package simx.components.renderer.jvr
 
 import java.io.File
-import javax.media.opengl.GL2GL3
 
+import com.jogamp.opengl.GL2GL3
 import de.bht.jvr.input.{MouseEvent, MouseListener, KeyEvent, KeyListener}
 import de.bht.jvr.math.{Vector2, Vector4}
 import de.bht.jvr.core._
@@ -39,7 +39,7 @@ import simx.core.entity.Entity
 import simx.core.entity.description._
 import simx.core.entity.typeconversion.{TypeInfo, ConvertibleTrait}
 import simx.core.helper.{TextureData, SVarUpdateFunctionMap}
-import simx.core.ontology.{types => oTypes, SValDescription, Symbols}
+import simx.core.ontology.{types => oTypes, Annotation, EntityDescription, SValDescription, Symbols}
 import simx.core.svaractor.{StateParticle, SVar, SVarActor}
 import simx.core.worldinterface.eventhandling.EventProvider
 
@@ -455,8 +455,12 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
       }
     }
 
-    recurseKeys(keyboard.getOrElse(winId, new Entity), oTypes.Mappings.keyMap.toList)
-    recurseBtns(mouse.getOrElse(winId, new Entity), mouseMappings.toSValSeq.toList)
+    val _kbEntity = new Entity(new EntityDescription("Keyboard" + winId).desc)
+    _kbEntity.set(oTypes.EntityType(Symbols.keyboard))
+    recurseKeys(keyboard.getOrElse(winId, _kbEntity), oTypes.Mappings.keyMap.toList)
+    val _mEntity = new Entity(new EntityDescription("Mouse" + winId).desc)
+    _mEntity.set(oTypes.EntityType(Symbols.mouse))
+    recurseBtns(mouse.getOrElse(winId, _mEntity), mouseMappings.toSValSeq.toList)
     registerListeners(window, config, winId)
   }
 
@@ -608,20 +612,20 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
       var isPressed = -1
 
       def mouseReleased(e: MouseEvent) {
-        buttons.get(e.getButton).collect{ case x => sett(x(false)) }
         isPressed = -1
-        updatePickRay(e, isPressed)
+        updatePickRay(e, isPressed, buttons.get(e.getButton))
+        //buttons.get(e.getButton).collect{ case x => sett(x(false)) }
       }
 
       def mousePressed(e: MouseEvent) {
-        buttons.get(e.getButton).collect{ case x => sett(x(true)) }
         isPressed = 1
-        updatePickRay(e, isPressed)
+        updatePickRay(e, isPressed, buttons.get(e.getButton))
+        //buttons.get(e.getButton).collect{ case x => sett(x(true)) }
       }
 
       def mouseMoved( e: MouseEvent ) {
         sett( oTypes.Position2D(Vec2f( e.getX.toFloat, e.getY.toFloat )) )
-        updatePickRay(e, isPressed, sendEvent = false)
+        updatePickRay(e, isPressed)
       }
 
       def mouseClicked(e: MouseEvent) {
@@ -633,13 +637,15 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
       def mouseDragged(e: MouseEvent)   {sett( oTypes.Position2D(Vec2f( e.getX.toFloat, e.getY.toFloat )) )}
       def mouseWheelMoved(e: MouseEvent){}
 
-      private def updatePickRay(e: MouseEvent, state : Int, sendEvent : Boolean = true) {
+      private def updatePickRay(e: MouseEvent, state : Int, buttonPress : Option[ConvertibleTrait[Boolean]] = None) {
         if (cameras.nonEmpty) {
           val pickRay = Picker.getPickRay(sceneRoot, cameras.head._2.head._2, e.getNormalizedX, e.getNormalizedY)
           sett(oTypes.Origin(ConstVec3f(pickRay.getRayOrigin.x, pickRay.getRayOrigin.y, pickRay.getRayOrigin.z)))
           sett(oTypes.Direction(ConstVec3f(pickRay.getRayDirection.x, pickRay.getRayDirection.y, pickRay.getRayDirection.z)))
-          if (sendEvent)
+          buttonPress.map{ x =>
+            sett(x(if (state == 1) true else false))
             self ! RequestPick(pickRay, state)
+          }
         }
       }
     })
@@ -1129,11 +1135,13 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
                           parentElement : Option[Entity], scale : Option[Transform] = None ) = {
     val hullNode = new GroupNode( e.getSimpleName + "_hull")
     hullNode.setTransform( trafo )
-    if (scale.isDefined){
-      val scaleNode = new GroupNode( e.getSimpleName + "_scale")
-      scaleNode.setTransform(scale.get)
-      setParent(toInsert, scaleNode)
-      setParent(scaleNode, hullNode)
+    val scaleNode =
+      if (scale.isDefined) Some(new GroupNode( e.getSimpleName + "_scale")) else None
+
+    if (scaleNode.isDefined) {
+      scaleNode.get.setTransform(scale.get)
+      setParent(toInsert, scaleNode.get)
+      setParent(scaleNode.get, hullNode)
     }
     else setParent( toInsert, hullNode )
 
@@ -1212,14 +1220,14 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
             }
 
             textureSVar._2.observe(handleTexUpdate _)
-            //textureSVar._2.get(handleTexUpdate _)
+            textureSVar._2.get(handleTexUpdate _)
           })
 
 
       }
     }
 
-    hullNode
+    (hullNode, scaleNode)
   }
 
   private def forall[T](c: java.util.Collection[T])(handler: T => Unit) {
@@ -1311,7 +1319,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
     spotLight.setQuadraticAttenuation( fget( oTypes.QuadraticAttenuation ) )
 
     addInsertion(entity){ e : Entity =>
-      val hullNode = insertNode(e, spotLight, transformation, parentElement)
+      val (hullNode, scaleNode) = insertNode(e, spotLight, transformation, parentElement)
       connect(e,
         asTriple(ontology.types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform),
         asTriple(ontology.types.DiffuseColor, spotLight.setDiffuseColor( _ : Color ), spotLight.getDiffuseColor),
@@ -1345,7 +1353,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
     pointLight.setQuadraticAttenuation( fget( oTypes.QuadraticAttenuation ) )
 
     addInsertion(entity){ e : Entity =>
-      val hullNode = insertNode (e, pointLight, transformation, parentElement )
+      val (hullNode, scaleNode) = insertNode (e, pointLight, transformation, parentElement )
       connect(e,
         asTriple(ontology.types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform),
         asTriple(ontology.types.DiffuseColor , pointLight.setDiffuseColor( _ : Color), pointLight.getDiffuseColor),
@@ -1402,7 +1410,8 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
     val scale           = aget( ontology.types.Scale )
 
     ask( ResourceManager.self, AskColladaFile(new File(fileName))  ){
-      source : GroupNode =>
+      s : SceneNode =>
+        val source = new GroupNode().addChildNode(s)
         val shape = subElement.collect{ case name => Finder.find( source, classOf[GroupNode], name ) }.getOrElse(source)
         val shaderEffect = aspect.getCreateParams.getFirstValueFor( ontology.types.ShaderEffect )
 
@@ -1417,8 +1426,9 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
         }
 
         addInsertion(entity){ e : Entity =>
-          val hullNode = insertNode(e, shape, transformation, parentElement, scale)
+          val (hullNode, scaleNode) = insertNode(e, shape, transformation, parentElement, scale)
           connect(e, asTriple(ontology.types.Transformation, hullNode.setTransform( _ : Transform ), hullNode.getTransform))
+          scaleNode.foreach{s => connect(e, asTriple(ontology.types.Scale, s.setTransform( _ : Transform ), s.getTransform))}
           shaderEffect.collect{ case se => se.bindShaderMaterialToEntity(e) }
         }
 
@@ -1433,7 +1443,8 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
     val hullNode = new GroupNode( name + "_hull")
     val clipPlane = new ClipPlaneNode
     ask(ResourceManager.self, AskColladaFile( new File( fileName ) )){
-      shape : GroupNode =>
+      s : SceneNode =>
+        val shape = new GroupNode().addChildNode(s)
         clipPlane.setTransform( Transform.rotateX( functions.radians( 180f ) ) )
         Finder.find(shape, classOf[ShapeNode], null).setMaterial(shaderMat)
         setParent( clipPlane, hullNode )
@@ -1640,7 +1651,7 @@ class JVRRenderActor extends SVarActor with SVarUpdateFunctionMap with IODeviceP
 
     n.getParentNode.asInstanceOf[GroupNode].removeChildNode( n )
     addInsertion(entity){ e : Entity =>
-      val hullNode = insertNode(e, n, innerTranslation.mul(innerScale.invert().mul(rot)), None, Some(scale.mul(innerScale)))
+      val (hullNode, scaleNode) = insertNode(e, n, innerTranslation.mul(innerScale.invert().mul(rot)), None, Some(scale.mul(innerScale)))
       singleConnect[Transform](e, (ontology.types.Transformation, (in : Transform ) => hullNode.setTransform( in ), hullNode.getTransform), useGet = true)
       shaderEffects.foreach(_.bindShaderMaterialToEntity(e))
     }

@@ -27,7 +27,7 @@ import simx.core.ontology.types.{ColladaFile, Transformation, Scale, SubElement}
 import simx.core.entity.Entity
 import simx.core.ontology.{SValDescription, GroundedSymbol, Symbols}
 import simx.core.entity.typeconversion.{TypeInfo, ConvertibleTrait}
-import simx.core.entity.description.{SVal, SValSeq}
+import simx.core.entity.description.{SValSet, SVal}
 import simx.core.helper.Execute
 import simx.core.svaractor.SVarActor
 import simplex3d.math.floatx.{Mat4f, ConstMat4f}
@@ -166,7 +166,7 @@ case class PPE( ppe : PostProcessingEffect ) extends RendererAspect( Symbols.pos
   val list = ppe.getSVarDescriptions
 
   override def getCreateParams = addCVars {
-    ppe.getCreateParameters ++ (simx.components.renderer.jvr.ontology.types.PostProcessingEffect( ppe ) :: Nil)
+    ppe.getCreateParameters and simx.components.renderer.jvr.ontology.types.PostProcessingEffect( ppe )
   }
 
   override def getFeatures : Set[ConvertibleTrait[_]] = {
@@ -199,8 +199,8 @@ case class JVRExistingNode(
   require( shaderEffect != null, "The parameter 'shaderEffect' must not be null!" )
 
   override def getCreateParams = {
-    val seq = new SValSeq(SubElement( subElement )) and Scale( scale ) and ontology.types.ShaderEffect( shaderEffect )
-    myCombine.foldLeft(seq){ _ and _ }
+    val seq = SubElement( subElement ) and Scale( scale ) and ontology.types.ShaderEffect( shaderEffect )
+    myCombine.foldLeft(seq){ _ += _ }
     addCVars(seq)
   }
 
@@ -256,12 +256,12 @@ case class JVRShapeFromFile( file: String,
   require( shaderEffect != null, "The parameter 'shaderEffect' must not be null!" )
 
   override def getCreateParams = {
-    var cVars = new SValSeq
-    cVars = cVars and ColladaFile( file )
-    if( subElement.isDefined ) cVars = cVars and SubElement( subElement.get )
-    if( transformation.isRight ) cVars = cVars and Transformation( transformation.right.get )
-    cVars = cVars and Scale( scale ) and ontology.types.ShaderEffect( shaderEffect )
-    myCombine.foldLeft(cVars){ _ and _ }
+    var cVars = new SValSet
+    cVars += ColladaFile( file )
+    if( subElement.isDefined ) cVars += SubElement( subElement.get )
+    if( transformation.isRight ) cVars += Transformation( transformation.right.get )
+    cVars += Scale( scale ); cVars += ontology.types.ShaderEffect( shaderEffect )
+    myCombine.foldLeft(cVars){ _ += _ }
     addCVars( cVars )
   }
 

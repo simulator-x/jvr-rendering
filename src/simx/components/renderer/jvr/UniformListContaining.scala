@@ -86,7 +86,7 @@ class UniformManager[T, U, P <: UniformListContaining[P] ]( val name: String, va
   def convertedBy[V](converter : (V => T, T => V)) : UniformManager[T, V, P] = {
     parent.uniformList = parent.uniformList.filterNot( _ == this )
     ontologyMember match {
-      case Some(x : SValDescription[V, _, _ ,_]) => new UniformManager(name, value, Some(x.asInstanceOf[SValDescription[V, _, _ <: Base, _ <: Thing]]), parent, converter)
+      case Some(x : SValDescription[V@unchecked, _, _ ,_]) => new UniformManager(name, value, Some(x.asInstanceOf[SValDescription[V, _, _ <: Base, _ <: Thing]]), parent, converter)
       case None => new UniformManager(name, value, None, parent, converter)
       case _ => throw new Exception("cannot specify converter after specifying ontology member")
     }

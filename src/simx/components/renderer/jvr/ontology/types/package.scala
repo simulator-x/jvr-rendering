@@ -8,44 +8,101 @@ package simx.components.renderer.jvr.ontology
 import simx.components.renderer.jvr.ontology.functions.Functions
 import simx.core.ontology.types._
 import simx.core.entity.description.SVal
+import simx.core.entity.description.SValHistory
 
 package object types{
   def init(){}
-	object DiffuseColor extends simx.core.ontology.SValDescription(simx.core.ontology.types.DiffuseColor as simx.core.ontology.Symbols.diffuseColor withType classOf[de.bht.jvr.util.Color] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#DiffuseColor") {
-		override def apply(value: dataType) = new DiffuseColor(value)
+	object DiffuseColor extends simx.core.ontology.SValDescription[de.bht.jvr.util.Color,java.awt.Color,simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.color.SymbolType],simx.core.ontology.Symbols.diffuseColor.SymbolType],simx.core.ontology.Symbols.diffuseColor.SymbolType](simx.core.ontology.types.DiffuseColor as simx.core.ontology.Symbols.diffuseColor withType classOf[de.bht.jvr.util.Color] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#DiffuseColor") with simx.core.ontology.types.SemanticSValType[DiffuseColor] {
+		override def apply(value: dataType): SemanticSValType = new DiffuseColor(value, -1L, Nil)
+		override def apply(value: dataType, timestamp : scala.Long): SemanticSValType = new DiffuseColor(value, timestamp, Nil)
+		override def apply(value: dataType, timestamp : scala.Long, history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.util.Color]) = new DiffuseColorWithHistory(value, timestamp, history)
 	}
-	class DiffuseColor(private val _value : DiffuseColor.dataType) extends SVal(_value, DiffuseColor.valueDescription, DiffuseColor)
+	class DiffuseColor(private val _value : DiffuseColor.dataType, private val _timestamp: scala.Long, private val _history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.util.Color]) extends simx.core.entity.description.SVal[de.bht.jvr.util.Color,simx.core.entity.typeconversion.TypeInfo[de.bht.jvr.util.Color,de.bht.jvr.util.Color],simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.color.SymbolType],simx.core.ontology.Symbols.diffuseColor.SymbolType],simx.core.ontology.Symbols.diffuseColor.SymbolType](_value, DiffuseColor.valueDescription, DiffuseColor, _timestamp, _history) {
+		def withHistory = new DiffuseColorWithHistory(value, timestamp, history)
+	}
+	class DiffuseColorWithHistory(_v: de.bht.jvr.util.Color, _t: scala.Long, _h: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.util.Color]) extends DiffuseColor(_v,_t,_h) with SValHistory[de.bht.jvr.util.Color,simx.core.ontology.Symbols.diffuseColor.SymbolType,DiffuseColor] {
+		def newNonHistoryInstance(value: de.bht.jvr.util.Color) = DiffuseColor(value)
+	}
 	
-	object HeadTransform extends simx.core.ontology.SValDescription(simx.core.ontology.types.HeadTransform as simx.core.ontology.Symbols.headTransform withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#HeadTransform") {
-		override def apply(value: dataType) = new HeadTransform(value)
+	object HeadTransform extends simx.core.ontology.SValDescription[de.bht.jvr.core.Transform,simplex3d.math.floatx.ConstMat4f,simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.matrix.SymbolType],simx.core.ontology.Symbols.transformation.SymbolType],simx.core.ontology.Symbols.headTransform.SymbolType],simx.core.ontology.Symbols.headTransform.SymbolType](simx.core.ontology.types.HeadTransform as simx.core.ontology.Symbols.headTransform withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#HeadTransform") with simx.core.ontology.types.SemanticSValType[HeadTransform] {
+		override def apply(value: dataType): SemanticSValType = new HeadTransform(value, -1L, Nil)
+		override def apply(value: dataType, timestamp : scala.Long): SemanticSValType = new HeadTransform(value, timestamp, Nil)
+		override def apply(value: dataType, timestamp : scala.Long, history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) = new HeadTransformWithHistory(value, timestamp, history)
 	}
-	class HeadTransform(private val _value : HeadTransform.dataType) extends SVal(_value, HeadTransform.valueDescription, HeadTransform)
+	class HeadTransform(private val _value : HeadTransform.dataType, private val _timestamp: scala.Long, private val _history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) extends simx.core.entity.description.SVal[de.bht.jvr.core.Transform,simx.core.entity.typeconversion.TypeInfo[de.bht.jvr.core.Transform,de.bht.jvr.core.Transform],simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.matrix.SymbolType],simx.core.ontology.Symbols.transformation.SymbolType],simx.core.ontology.Symbols.headTransform.SymbolType],simx.core.ontology.Symbols.headTransform.SymbolType](_value, HeadTransform.valueDescription, HeadTransform, _timestamp, _history) {
+		def withHistory = new HeadTransformWithHistory(value, timestamp, history)
+	}
+	class HeadTransformWithHistory(_v: de.bht.jvr.core.Transform, _t: scala.Long, _h: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) extends HeadTransform(_v,_t,_h) with SValHistory[de.bht.jvr.core.Transform,simx.core.ontology.Symbols.headTransform.SymbolType,HeadTransform] {
+		def newNonHistoryInstance(value: de.bht.jvr.core.Transform) = HeadTransform(value)
+	}
 	
-	object PostProcessingEffect extends simx.core.ontology.SValDescription(simx.core.ontology.types.NullType as simx.core.ontology.Symbols.postProcessingEffect withType classOf[simx.components.renderer.jvr.PostProcessingEffect] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#PostProcessingEffect") {
-		override def apply(value: dataType) = new PostProcessingEffect(value)
+	object PostProcessingEffect extends simx.core.ontology.SValDescription[simx.components.renderer.jvr.PostProcessingEffect,simx.components.renderer.jvr.PostProcessingEffect,simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.postProcessingEffect.SymbolType](simx.core.ontology.types.NullType as simx.core.ontology.Symbols.postProcessingEffect withType classOf[simx.components.renderer.jvr.PostProcessingEffect] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#PostProcessingEffect") with simx.core.ontology.types.SemanticSValType[PostProcessingEffect] {
+		override def apply(value: dataType): SemanticSValType = new PostProcessingEffect(value, -1L, Nil)
+		override def apply(value: dataType, timestamp : scala.Long): SemanticSValType = new PostProcessingEffect(value, timestamp, Nil)
+		override def apply(value: dataType, timestamp : scala.Long, history: simx.core.entity.description.HistoryStorage.HistoryType[simx.components.renderer.jvr.PostProcessingEffect]) = new PostProcessingEffectWithHistory(value, timestamp, history)
 	}
-	class PostProcessingEffect(private val _value : PostProcessingEffect.dataType) extends SVal(_value, PostProcessingEffect.valueDescription, PostProcessingEffect)
+	class PostProcessingEffect(private val _value : PostProcessingEffect.dataType, private val _timestamp: scala.Long, private val _history: simx.core.entity.description.HistoryStorage.HistoryType[simx.components.renderer.jvr.PostProcessingEffect]) extends simx.core.entity.description.SVal[simx.components.renderer.jvr.PostProcessingEffect,simx.core.entity.typeconversion.TypeInfo[simx.components.renderer.jvr.PostProcessingEffect,simx.components.renderer.jvr.PostProcessingEffect],simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.postProcessingEffect.SymbolType](_value, PostProcessingEffect.valueDescription, PostProcessingEffect, _timestamp, _history) {
+		def withHistory = new PostProcessingEffectWithHistory(value, timestamp, history)
+	}
+	class PostProcessingEffectWithHistory(_v: simx.components.renderer.jvr.PostProcessingEffect, _t: scala.Long, _h: simx.core.entity.description.HistoryStorage.HistoryType[simx.components.renderer.jvr.PostProcessingEffect]) extends PostProcessingEffect(_v,_t,_h) with SValHistory[simx.components.renderer.jvr.PostProcessingEffect,simx.core.ontology.Symbols.postProcessingEffect.SymbolType,PostProcessingEffect] {
+		def newNonHistoryInstance(value: simx.components.renderer.jvr.PostProcessingEffect) = PostProcessingEffect(value)
+	}
 	
-	object Scale extends simx.core.ontology.SValDescription(simx.core.ontology.types.Scale as simx.core.ontology.Symbols.scale withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicTypes.owl#Scale") {
-		override def apply(value: dataType) = new Scale(value)
+	object Scale extends simx.core.ontology.SValDescription[de.bht.jvr.core.Transform,simplex3d.math.floatx.ConstMat4f,simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.matrix.SymbolType],simx.core.ontology.Symbols.transformation.SymbolType],simx.core.ontology.Symbols.scale.SymbolType],simx.core.ontology.Symbols.scale.SymbolType](simx.core.ontology.types.Scale as simx.core.ontology.Symbols.scale withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicTypes.owl#Scale") with simx.core.ontology.types.SemanticSValType[Scale] {
+		override def apply(value: dataType): SemanticSValType = new Scale(value, -1L, Nil)
+		override def apply(value: dataType, timestamp : scala.Long): SemanticSValType = new Scale(value, timestamp, Nil)
+		override def apply(value: dataType, timestamp : scala.Long, history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) = new ScaleWithHistory(value, timestamp, history)
 	}
-	class Scale(private val _value : Scale.dataType) extends SVal(_value, Scale.valueDescription, Scale)
-	object ShaderEffect extends simx.core.ontology.SValDescription(simx.core.ontology.types.NullType as simx.core.ontology.Symbols.shaderEffect withType classOf[simx.components.renderer.jvr.ShaderEffect] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#ShaderEffect") {
-		override def apply(value: dataType) = new ShaderEffect(value)
+	class Scale(private val _value : Scale.dataType, private val _timestamp: scala.Long, private val _history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) extends simx.core.entity.description.SVal[de.bht.jvr.core.Transform,simx.core.entity.typeconversion.TypeInfo[de.bht.jvr.core.Transform,de.bht.jvr.core.Transform],simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.matrix.SymbolType],simx.core.ontology.Symbols.transformation.SymbolType],simx.core.ontology.Symbols.scale.SymbolType],simx.core.ontology.Symbols.scale.SymbolType](_value, Scale.valueDescription, Scale, _timestamp, _history) {
+		def withHistory = new ScaleWithHistory(value, timestamp, history)
 	}
-	class ShaderEffect(private val _value : ShaderEffect.dataType) extends SVal(_value, ShaderEffect.valueDescription, ShaderEffect)
-	object SpecularColor extends simx.core.ontology.SValDescription(simx.core.ontology.types.SpecularColor as simx.core.ontology.Symbols.specularColor withType classOf[de.bht.jvr.util.Color] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#SpecularColor") {
-		override def apply(value: dataType) = new SpecularColor(value)
+	class ScaleWithHistory(_v: de.bht.jvr.core.Transform, _t: scala.Long, _h: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) extends Scale(_v,_t,_h) with SValHistory[de.bht.jvr.core.Transform,simx.core.ontology.Symbols.scale.SymbolType,Scale] {
+		def newNonHistoryInstance(value: de.bht.jvr.core.Transform) = Scale(value)
 	}
-	class SpecularColor(private val _value : SpecularColor.dataType) extends SVal(_value, SpecularColor.valueDescription, SpecularColor)
+	object ShaderEffect extends simx.core.ontology.SValDescription[simx.components.renderer.jvr.ShaderEffect,simx.components.renderer.jvr.ShaderEffect,simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.shaderEffect.SymbolType](simx.core.ontology.types.NullType as simx.core.ontology.Symbols.shaderEffect withType classOf[simx.components.renderer.jvr.ShaderEffect] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#ShaderEffect") with simx.core.ontology.types.SemanticSValType[ShaderEffect] {
+		override def apply(value: dataType): SemanticSValType = new ShaderEffect(value, -1L, Nil)
+		override def apply(value: dataType, timestamp : scala.Long): SemanticSValType = new ShaderEffect(value, timestamp, Nil)
+		override def apply(value: dataType, timestamp : scala.Long, history: simx.core.entity.description.HistoryStorage.HistoryType[simx.components.renderer.jvr.ShaderEffect]) = new ShaderEffectWithHistory(value, timestamp, history)
+	}
+	class ShaderEffect(private val _value : ShaderEffect.dataType, private val _timestamp: scala.Long, private val _history: simx.core.entity.description.HistoryStorage.HistoryType[simx.components.renderer.jvr.ShaderEffect]) extends simx.core.entity.description.SVal[simx.components.renderer.jvr.ShaderEffect,simx.core.entity.typeconversion.TypeInfo[simx.components.renderer.jvr.ShaderEffect,simx.components.renderer.jvr.ShaderEffect],simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.shaderEffect.SymbolType](_value, ShaderEffect.valueDescription, ShaderEffect, _timestamp, _history) {
+		def withHistory = new ShaderEffectWithHistory(value, timestamp, history)
+	}
+	class ShaderEffectWithHistory(_v: simx.components.renderer.jvr.ShaderEffect, _t: scala.Long, _h: simx.core.entity.description.HistoryStorage.HistoryType[simx.components.renderer.jvr.ShaderEffect]) extends ShaderEffect(_v,_t,_h) with SValHistory[simx.components.renderer.jvr.ShaderEffect,simx.core.ontology.Symbols.shaderEffect.SymbolType,ShaderEffect] {
+		def newNonHistoryInstance(value: simx.components.renderer.jvr.ShaderEffect) = ShaderEffect(value)
+	}
+	object SpecularColor extends simx.core.ontology.SValDescription[de.bht.jvr.util.Color,java.awt.Color,simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.color.SymbolType],simx.core.ontology.Symbols.specularColor.SymbolType],simx.core.ontology.Symbols.specularColor.SymbolType](simx.core.ontology.types.SpecularColor as simx.core.ontology.Symbols.specularColor withType classOf[de.bht.jvr.util.Color] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#SpecularColor") with simx.core.ontology.types.SemanticSValType[SpecularColor] {
+		override def apply(value: dataType): SemanticSValType = new SpecularColor(value, -1L, Nil)
+		override def apply(value: dataType, timestamp : scala.Long): SemanticSValType = new SpecularColor(value, timestamp, Nil)
+		override def apply(value: dataType, timestamp : scala.Long, history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.util.Color]) = new SpecularColorWithHistory(value, timestamp, history)
+	}
+	class SpecularColor(private val _value : SpecularColor.dataType, private val _timestamp: scala.Long, private val _history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.util.Color]) extends simx.core.entity.description.SVal[de.bht.jvr.util.Color,simx.core.entity.typeconversion.TypeInfo[de.bht.jvr.util.Color,de.bht.jvr.util.Color],simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.color.SymbolType],simx.core.ontology.Symbols.specularColor.SymbolType],simx.core.ontology.Symbols.specularColor.SymbolType](_value, SpecularColor.valueDescription, SpecularColor, _timestamp, _history) {
+		def withHistory = new SpecularColorWithHistory(value, timestamp, history)
+	}
+	class SpecularColorWithHistory(_v: de.bht.jvr.util.Color, _t: scala.Long, _h: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.util.Color]) extends SpecularColor(_v,_t,_h) with SValHistory[de.bht.jvr.util.Color,simx.core.ontology.Symbols.specularColor.SymbolType,SpecularColor] {
+		def newNonHistoryInstance(value: de.bht.jvr.util.Color) = SpecularColor(value)
+	}
 	
-	object Transformation extends simx.core.ontology.SValDescription(simx.core.ontology.types.Transformation as simx.core.ontology.Symbols.transformation withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicTypes.owl#Transformation") {
-		override def apply(value: dataType) = new Transformation(value)
+	object Transformation extends simx.core.ontology.SValDescription[de.bht.jvr.core.Transform,simplex3d.math.floatx.ConstMat4f,simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.matrix.SymbolType],simx.core.ontology.Symbols.transformation.SymbolType],simx.core.ontology.Symbols.transformation.SymbolType](simx.core.ontology.types.Transformation as simx.core.ontology.Symbols.transformation withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicTypes.owl#Transformation") with simx.core.ontology.types.SemanticSValType[Transformation] {
+		override def apply(value: dataType): SemanticSValType = new Transformation(value, -1L, Nil)
+		override def apply(value: dataType, timestamp : scala.Long): SemanticSValType = new Transformation(value, timestamp, Nil)
+		override def apply(value: dataType, timestamp : scala.Long, history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) = new TransformationWithHistory(value, timestamp, history)
 	}
-	class Transformation(private val _value : Transformation.dataType) extends SVal(_value, Transformation.valueDescription, Transformation)
+	class Transformation(private val _value : Transformation.dataType, private val _timestamp: scala.Long, private val _history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) extends simx.core.entity.description.SVal[de.bht.jvr.core.Transform,simx.core.entity.typeconversion.TypeInfo[de.bht.jvr.core.Transform,de.bht.jvr.core.Transform],simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.matrix.SymbolType],simx.core.ontology.Symbols.transformation.SymbolType],simx.core.ontology.Symbols.transformation.SymbolType](_value, Transformation.valueDescription, Transformation, _timestamp, _history) {
+		def withHistory = new TransformationWithHistory(value, timestamp, history)
+	}
+	class TransformationWithHistory(_v: de.bht.jvr.core.Transform, _t: scala.Long, _h: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) extends Transformation(_v,_t,_h) with SValHistory[de.bht.jvr.core.Transform,simx.core.ontology.Symbols.transformation.SymbolType,Transformation] {
+		def newNonHistoryInstance(value: de.bht.jvr.core.Transform) = Transformation(value)
+	}
 	
-	object ViewPlatform extends simx.core.ontology.SValDescription(simx.core.ontology.types.ViewPlatform as simx.core.ontology.Symbols.viewPlatform withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#ViewPlatform") {
-		override def apply(value: dataType) = new ViewPlatform(value)
+	object ViewPlatform extends simx.core.ontology.SValDescription[de.bht.jvr.core.Transform,simplex3d.math.floatx.ConstMat4f,simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.matrix.SymbolType],simx.core.ontology.Symbols.transformation.SymbolType],simx.core.ontology.Symbols.viewPlatform.SymbolType],simx.core.ontology.Symbols.viewPlatform.SymbolType](simx.core.ontology.types.ViewPlatform as simx.core.ontology.Symbols.viewPlatform withType classOf[de.bht.jvr.core.Transform] definedAt "http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#ViewPlatform") with simx.core.ontology.types.SemanticSValType[ViewPlatform] {
+		override def apply(value: dataType): SemanticSValType = new ViewPlatform(value, -1L, Nil)
+		override def apply(value: dataType, timestamp : scala.Long): SemanticSValType = new ViewPlatform(value, timestamp, Nil)
+		override def apply(value: dataType, timestamp : scala.Long, history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) = new ViewPlatformWithHistory(value, timestamp, history)
 	}
-	class ViewPlatform(private val _value : ViewPlatform.dataType) extends SVal(_value, ViewPlatform.valueDescription, ViewPlatform)
+	class ViewPlatform(private val _value : ViewPlatform.dataType, private val _timestamp: scala.Long, private val _history: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) extends simx.core.entity.description.SVal[de.bht.jvr.core.Transform,simx.core.entity.typeconversion.TypeInfo[de.bht.jvr.core.Transform,de.bht.jvr.core.Transform],simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.ValueDescription[simx.core.svaractor.semantictrait.base.Base,simx.core.ontology.Symbols.matrix.SymbolType],simx.core.ontology.Symbols.transformation.SymbolType],simx.core.ontology.Symbols.viewPlatform.SymbolType],simx.core.ontology.Symbols.viewPlatform.SymbolType](_value, ViewPlatform.valueDescription, ViewPlatform, _timestamp, _history) {
+		def withHistory = new ViewPlatformWithHistory(value, timestamp, history)
+	}
+	class ViewPlatformWithHistory(_v: de.bht.jvr.core.Transform, _t: scala.Long, _h: simx.core.entity.description.HistoryStorage.HistoryType[de.bht.jvr.core.Transform]) extends ViewPlatform(_v,_t,_h) with SValHistory[de.bht.jvr.core.Transform,simx.core.ontology.Symbols.viewPlatform.SymbolType,ViewPlatform] {
+		def newNonHistoryInstance(value: de.bht.jvr.core.Transform) = ViewPlatform(value)
+	}
 }

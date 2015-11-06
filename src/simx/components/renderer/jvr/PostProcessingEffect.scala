@@ -30,7 +30,7 @@ import simx.core.entity.typeconversion.ConvertibleTrait
 import de.bht.jvr.core.uniforms._
 import de.bht.jvr.math.{Vector4, Vector2}
 import simplex3d.math.floatx.{ConstVec4f, Vec2f}
-import simx.core.entity.description.SVal
+import simx.core.entity.description.{SValSet, SVal}
 import simx.core.svaractor.semantictrait.base.{Thing, Base}
 import scala.annotation.meta.field
 
@@ -479,11 +479,11 @@ class PostProcessingEffect() extends UniformListContaining[PostProcessingEffect]
 
   }
 
-  def getCreateParameters : Seq[SVal[_,_, _ <: Base, _ <: Thing]] = {
+  def getCreateParameters : SValSet = {
     def combine[T, U](um : UniformManager[T, U, _]) =
       um.ontologyMember.get.apply(um.converter._2(um.value))
 
-    uniformList.filter(_.ontologyMember.isDefined).map( combine(_) )
+    SValSet(uniformList.filter(_.ontologyMember.isDefined).map( combine(_) ):_*)
   }
 
   /**

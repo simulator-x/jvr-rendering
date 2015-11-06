@@ -8,6 +8,6 @@ package simx.components.renderer.jvr.ontology.functions
 import simx.components.renderer.jvr.ontology.types._
 import simx.core.ontology.types._
 
-trait Functions{
+trait Functions {
 
 }

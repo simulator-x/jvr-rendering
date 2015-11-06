@@ -1,0 +1,308 @@
+<?xml version="1.0"?>
+
+
+<!DOCTYPE Ontology [
+    <!ENTITY xsd "http://www.w3.org/2001/XMLSchema#" >
+    <!ENTITY xml "http://www.w3.org/XML/1998/namespace" >
+    <!ENTITY rdfs "http://www.w3.org/2000/01/rdf-schema#" >
+    <!ENTITY rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#" >
+]>
+
+
+<Ontology xmlns="http://www.w3.org/2002/07/owl#"
+     xml:base="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/JVR/JVR.owl"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:xml="http://www.w3.org/XML/1998/namespace"
+     ontologyIRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/JVR/JVR.owl"
+     versionIRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/JVR/JVR20130213.owl">
+    <Prefix name="" IRI="http://www.w3.org/2002/07/owl#"/>
+    <Prefix name="owl" IRI="http://www.w3.org/2002/07/owl#"/>
+    <Prefix name="rdf" IRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#"/>
+    <Prefix name="xsd" IRI="http://www.w3.org/2001/XMLSchema#"/>
+    <Prefix name="rdfs" IRI="http://www.w3.org/2000/01/rdf-schema#"/>
+    <Import>http://localhost:8080/components/renderer/SimxRenderer.owl</Import>
+    <Declaration>
+        <Class IRI="#JVR"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#PostProcessingEffect"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#ShaderEffect"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Window"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#SimXJVR_ShapeFromFileAspectDescription"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#SimxJvr_DiffuseColorDescription"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#SimxJvr_HeadTransformDescription"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#SimxJvr_PostProcessingEffectDesc"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#SimxJvr_ScaleDesc"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#SimxJvr_ShaderEffectDesc"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#SimxJvr_SpecularColorDesc"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#SimxJvr_TransformationDescription"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#SimxJvr_ViewPlatformDescription"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#de.bht.jvr.core.Transform"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#de.bht.jvr.util.Color"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#simx.components.renderer.jvr.PostProcessingEffect"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="#simx.components.renderer.jvr.ShaderEffect"/>
+    </Declaration>
+    <SubClassOf>
+        <Class IRI="#JVR"/>
+        <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicTypes.owl#GraphicsComponent"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#PostProcessingEffect"/>
+        <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#Property"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#ShaderEffect"/>
+        <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#Property"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Window"/>
+        <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#Entity"/>
+    </SubClassOf>
+    <ClassAssertion>
+        <Class IRI="#JVR"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#describesProperty"/>
+            <Class IRI="#JVR"/>
+        </ObjectSomeValuesFrom>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#describesProperty"/>
+            <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#DiffuseColor"/>
+        </ObjectSomeValuesFrom>
+        <NamedIndividual IRI="#SimxJvr_DiffuseColorDescription"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#describesProperty"/>
+            <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#HeadTransform"/>
+        </ObjectSomeValuesFrom>
+        <NamedIndividual IRI="#SimxJvr_HeadTransformDescription"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#describesProperty"/>
+            <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#PostProcessingEffect"/>
+        </ObjectSomeValuesFrom>
+        <NamedIndividual IRI="#SimxJvr_PostProcessingEffectDesc"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#describesProperty"/>
+            <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicTypes.owl#Scale"/>
+        </ObjectSomeValuesFrom>
+        <NamedIndividual IRI="#SimxJvr_ScaleDesc"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#describesProperty"/>
+            <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#ShaderEffect"/>
+        </ObjectSomeValuesFrom>
+        <NamedIndividual IRI="#SimxJvr_ShaderEffectDesc"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#describesProperty"/>
+            <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#SpecularColor"/>
+        </ObjectSomeValuesFrom>
+        <NamedIndividual IRI="#SimxJvr_SpecularColorDesc"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#describesProperty"/>
+            <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicTypes.owl#Transformation"/>
+        </ObjectSomeValuesFrom>
+        <NamedIndividual IRI="#SimxJvr_TransformationDescription"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#describesProperty"/>
+            <Class IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#ViewPlatform"/>
+        </ObjectSomeValuesFrom>
+        <NamedIndividual IRI="#SimxJvr_ViewPlatformDescription"/>
+    </ClassAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#forComponent"/>
+        <NamedIndividual IRI="#SimXJVR_ShapeFromFileAspectDescription"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#providesProperty"/>
+        <NamedIndividual IRI="#SimXJVR_ShapeFromFileAspectDescription"/>
+        <NamedIndividual IRI="#SimxJvr_ScaleDesc"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#providesProperty"/>
+        <NamedIndividual IRI="#SimXJVR_ShapeFromFileAspectDescription"/>
+        <NamedIndividual IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#SirisCore_ColladaFileDescription"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#requiresProperty"/>
+        <NamedIndividual IRI="#SimXJVR_ShapeFromFileAspectDescription"/>
+        <NamedIndividual IRI="#SimxJvr_TransformationDescription"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#basedOn"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+        <NamedIndividual IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#SirisCore_ComponentDescription"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#basedOn"/>
+        <NamedIndividual IRI="#SimxJvr_DiffuseColorDescription"/>
+        <NamedIndividual IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#SirisGraphics_DiffuseColorDescription"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#forComponent"/>
+        <NamedIndividual IRI="#SimxJvr_DiffuseColorDescription"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#hasDataType"/>
+        <NamedIndividual IRI="#SimxJvr_DiffuseColorDescription"/>
+        <NamedIndividual IRI="#de.bht.jvr.util.Color"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#basedOn"/>
+        <NamedIndividual IRI="#SimxJvr_HeadTransformDescription"/>
+        <NamedIndividual IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#SirisGraphics_HeadTransformDescription"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#forComponent"/>
+        <NamedIndividual IRI="#SimxJvr_HeadTransformDescription"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#hasDataType"/>
+        <NamedIndividual IRI="#SimxJvr_HeadTransformDescription"/>
+        <NamedIndividual IRI="#de.bht.jvr.core.Transform"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#forComponent"/>
+        <NamedIndividual IRI="#SimxJvr_PostProcessingEffectDesc"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#hasDataType"/>
+        <NamedIndividual IRI="#SimxJvr_PostProcessingEffectDesc"/>
+        <NamedIndividual IRI="#simx.components.renderer.jvr.PostProcessingEffect"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#basedOn"/>
+        <NamedIndividual IRI="#SimxJvr_ScaleDesc"/>
+        <NamedIndividual IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#SirisCore_ScaleDescription"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#forComponent"/>
+        <NamedIndividual IRI="#SimxJvr_ScaleDesc"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#hasDataType"/>
+        <NamedIndividual IRI="#SimxJvr_ScaleDesc"/>
+        <NamedIndividual IRI="#de.bht.jvr.core.Transform"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#forComponent"/>
+        <NamedIndividual IRI="#SimxJvr_ShaderEffectDesc"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#hasDataType"/>
+        <NamedIndividual IRI="#SimxJvr_ShaderEffectDesc"/>
+        <NamedIndividual IRI="#simx.components.renderer.jvr.ShaderEffect"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#basedOn"/>
+        <NamedIndividual IRI="#SimxJvr_SpecularColorDesc"/>
+        <NamedIndividual IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#SirisGraphics_SpecularColorDescription"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#forComponent"/>
+        <NamedIndividual IRI="#SimxJvr_SpecularColorDesc"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#hasDataType"/>
+        <NamedIndividual IRI="#SimxJvr_SpecularColorDesc"/>
+        <NamedIndividual IRI="#de.bht.jvr.util.Color"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#basedOn"/>
+        <NamedIndividual IRI="#SimxJvr_TransformationDescription"/>
+        <NamedIndividual IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/concepts/BasicDescriptions.owl#SirisCore_TransformationDescription"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#forComponent"/>
+        <NamedIndividual IRI="#SimxJvr_TransformationDescription"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#hasDataType"/>
+        <NamedIndividual IRI="#SimxJvr_TransformationDescription"/>
+        <NamedIndividual IRI="#de.bht.jvr.core.Transform"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#basedOn"/>
+        <NamedIndividual IRI="#SimxJvr_ViewPlatformDescription"/>
+        <NamedIndividual IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/components/renderer/SimxRenderer.owl#SirisGraphics_ViewPlatformDescription"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#forComponent"/>
+        <NamedIndividual IRI="#SimxJvr_ViewPlatformDescription"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#hasDataType"/>
+        <NamedIndividual IRI="#SimxJvr_ViewPlatformDescription"/>
+        <NamedIndividual IRI="#de.bht.jvr.core.Transform"/>
+    </ObjectPropertyAssertion>
+    <DataPropertyAssertion>
+        <DataProperty IRI="http://www.hci.uni-wuerzburg.de/ontologies/simx/SimxCoreOntology.owl#inPackage"/>
+        <NamedIndividual IRI="#SimxComponent_JVR"/>
+        <Literal datatypeIRI="&xsd;string">simx.components.renderer.jvr</Literal>
+    </DataPropertyAssertion>
+</Ontology>
+
+
+
+<!-- Generated by the OWL API (version 3.4.2) http://owlapi.sourceforge.net -->
+
